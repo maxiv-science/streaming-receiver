@@ -1,0 +1,29 @@
+package:
+  name: streaming-receiver
+  version: "{{ SETUPTOOLS_SCM_PRETEND_VERSION }}"
+
+source:
+  path: ..
+
+build:
+  number: 1
+  script: {{ PYTHON }} -m pip install . -vv
+  entry_points:
+    - streaming-receiver = app.main:main
+    
+requirements:
+  build:
+    - {{ compiler('c') }}
+
+  host:
+    - python
+    - setuptools-scm
+    - cython
+    - numpy
+    
+  run:
+    - python
+    - numpy
+    - h5py
+    - maxiv-bitshuffle
+    - pyyaml
