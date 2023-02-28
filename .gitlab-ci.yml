@@ -10,7 +10,7 @@ default:
 conda_build:
   stage: build
   script:
-    - conda build  --output-folder=package ./recipe
+    - conda build  --output-folder=package ./recipe --python=3.11
   artifacts:
     paths:
       - package/linux-64/streaming-receiver*.conda
