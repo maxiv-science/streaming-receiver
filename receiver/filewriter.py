@@ -3,7 +3,11 @@ import json
 import h5py
 import bitshuffle
 from threading import Thread
+from datetime import datetime
 from .queuey import Queuey
+
+def get_time_str():
+    return datetime.strftime(datetime.now(), '%Y-%m-%d %H:%M:%S.%f')
 
 class FileWriter():
     def __init__(self, dset_name):
@@ -19,7 +23,7 @@ class FileWriter():
         while True:
             parts = writer_queue.get()
             header = parts[0]
-            print('writer', header)
+            #print('writer', header)
             if header['htype'] == 'header':
                 self._handle_start(header, parts, worker_queue)
             elif header['htype'] == 'series_end':
@@ -46,11 +50,15 @@ class FileWriter():
                 self._fh = None
             status = {'htype': 'status',
                       'state': 'running'}
+            ts = get_time_str()
+            print(f'{ts}: send status running msg')
             worker_queue.put([status,])
         except Exception as e:
             status = {'htype': 'status',
                       'state': 'error',
                       'error': str(e)}
+            ts = get_time_str()
+            print(f'{ts}: send status error msg')
             worker_queue.put([status,])
             
     def _handle_end(self, worker_queue):
@@ -58,6 +66,8 @@ class FileWriter():
             self._fh.close()
         status = {'htype': 'status',
                   'state': 'idle'}
+        ts = get_time_str()
+        print(f'{ts}: send status idle msg')
         worker_queue.put([status,])
     
     def _handle_frame(self, header, parts):

@@ -100,7 +100,6 @@ class Eiger(Detector):
             meta_info = {key: info[key] for key in keys}
         else:
             meta_info = {}
-        print(meta_info)
         queue.put([meta_header, meta_info])
         
     def handle_frame(self, header, parts, queue):

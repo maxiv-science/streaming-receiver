@@ -15,8 +15,7 @@ formax-lambda:
   
 formax-eiger:
   class: Eiger
-  dcu_host_purple: localhost
-  #172.18.28.6
+  dcu_host_purple: 172.18.28.6
   rep_port: 23003
   data_port: 23004
   dset_name: /entry/instrument/eiger/data

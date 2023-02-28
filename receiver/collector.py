@@ -61,6 +61,7 @@ class Collector():
                 self.received_frames = 0
             elif header['htype'] == 'image':
                 self.received_frames += 1
+                self.last_frame = parts
             writer_queue.put(parts)
             for forwarder in forwarders:
                 await forwarder.forward(parts)
