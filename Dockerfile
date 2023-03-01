@@ -1,6 +1,6 @@
 FROM docker.maxiv.lu.se/conda-build:latest AS build
 
-RUN conda create -n streaming streaming-receiver && \
+RUN conda create -n streaming -c file://package/ streaming-receiver && \
     conda-pack -n streaming -o /tmp/env.tar && \
     mkdir /venv && cd /venv && tar xf /tmp/env.tar && \
     rm /tmp/env.tar && \
