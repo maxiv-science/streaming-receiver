@@ -35,7 +35,7 @@ class Collector():
     def __init__(self):
         self.received_frames = 0
         self.frame_rate = 0
-        self.last_frame = None
+        self.last_frame = [{}, b'']
         self.status = {'state': 'idle'}
         
     async def _update_metrics(self):
