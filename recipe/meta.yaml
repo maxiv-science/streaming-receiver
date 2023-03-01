@@ -1,6 +1,6 @@
 package:
   name: streaming-receiver
-  version: 0.0.1_dev
+  version: 3.0.0_dev1
 
 source:
   path: ..
