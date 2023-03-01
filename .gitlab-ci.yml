@@ -22,6 +22,7 @@ conda_build:
     
 upload_anaconda:
   stage: upload
+  image: docker.maxiv.lu.se/conda-build:latest
   rules:
     - if: $CI_COMMIT_TAG
   needs:
