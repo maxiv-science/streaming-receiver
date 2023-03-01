@@ -19,7 +19,6 @@ build_container:
   stage: container
   image: harbor.maxiv.lu.se/infrastructure/buildah:latest
   script:
-    - conda index package
     - buildah bud -t "harbor.maxiv.lu.se/daq/streaming-receiver:3.0.0" .
   needs:
     - job: conda_build
