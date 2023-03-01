@@ -26,4 +26,4 @@ requirements:
     - h5py
     - pyyaml
     - pyzmq
-    - maxiv-bitshuffle
+    - bitshuffle-python
