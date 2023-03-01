@@ -1,17 +1,26 @@
 stages:
   - build
-  - upload
   - container
 
 default:
-  image: docker.maxiv.lu.se/conda-build:latest
   tags: [kubernetes]
 
 conda_build:
   stage: build
+  image: docker.maxiv.lu.se/conda-build:latest
   script:
     - conda build  --output-folder=package ./recipe --python=3.11
   artifacts:
     paths:
       - package/linux-64/streaming-receiver*.conda
     expire_in: 1 week
+
+build_container:
+  stage: container
+  image: harbor.maxiv.lu.se/infrastructure/buildah:latest
+  script:
+    - buildah bud -t "harbor.maxiv.lu.se/daq/streaming-receiver:3.0.0" .
+  needs:
+    - job: conda_build
+      artifacts: true
+
