@@ -30,7 +30,7 @@ upload_anaconda:
       artifacts: true
   script:
     - echo "upload conda package"
-    - anaconda -t $TOKEN upload -u maxiv package/*/*.conda
+    - anaconda -t $TOKEN upload -u maxiv --force package/*/*.conda
 
 build_container:
   stage: container
