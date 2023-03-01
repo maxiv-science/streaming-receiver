@@ -1,14 +1,11 @@
 ### Formax
 formax-lambda:
   class: Lambda
-  #dcu_host_purple: [172.18.28.4,
-  #                  172.18.28.4,
-  #                  172.18.28.5,
-  #                  172.18.28.5]
-  dcu_host_purple: [localhost,
-                    localhost,
-                    localhost,
-                    localhost]
+  dcu_host_purple: [172.18.28.4,
+                    172.18.28.4,
+                    172.18.28.5,
+                    172.18.28.5]
+  
   rep_port: 23001
   data_port: 23002
   dset_name: /entry/instrument/lambda/data

@@ -1,6 +1,6 @@
 package:
   name: streaming-receiver
-  version: 3.0.0_dev1
+  version: {{ GIT_DESCRIBE_TAG }}
 
 source:
   path: ..
@@ -17,7 +17,6 @@ requirements:
 
   host:
     - python
-    - setuptools-scm
     - cython
     
   run:
