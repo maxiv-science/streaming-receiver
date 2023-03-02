@@ -1,92 +1,109 @@
-# streaming-receiver
+## Streaming receiver
+Provides receivers to store data from detectors into HDF5 Files and optional parallel data transformation and processing. Also forwards data on "secondary zmq port" for arbitrary processing.
+
+Receivers for the following detectors:
+ - Dectris Eiger 
+ - Dectris Pilatus with frame ordering and cbf -> bitshuffle lz4 compression
+ - Andor Zyla
+ - Hamamatsu Orca Lightning
+ - Xspectrum Lambda 
 
 
+## Run
+### Configuration
+The configuration of the different detector is stored in the [detectors.yaml](detectors.yaml) file.
 
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+### Native
+```
+streaming-receiver detectors.yaml nanomax-eiger
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.maxiv.lu.se/scisw/detectors/streaming-receiver.git
-git branch -M main
-git push -uf origin main
+### Docker
+Docker image are automatically created in the gitlab CI when a new release is tagged. Docker compose files are provided for the different detectors and beamlines
+
+
+## DAQ overview
+<img src="doc/daq-schema.png" alt="Pipeline overview" width="500px"/>
+
+### ZMQ REQ/REP interface
+
+The streaming-receiver has a ZMQ REQ/REP interface to get the status, number of received frames and most revent frame for live viewing.
+The protocal is just a simple command string and the reply is specific to the command.
+* For the "status" command the reply is json:
+
+```json
+{
+    "state": "idle / running / error",
+    "error": "description of error"
+}
+```
+* "received_frames" returns the number of received images as string
+* "last_frame" returns the most recent image in the same format as the secondary port for live processing
+
+## Secondary zmq data port for live processing
+The Secondary zmq data port for live processing is a **zmq PUSH** socket.
+
+There are 3 different types of messages. The **header** message comes once at the start of the scan, followed by the **image** messages and a final **series_end** message at the end of the scan. The messages are json encoded.
+The msg_number field in the messages is a monotonic increasing values that helps to appropriately order the messages
+
+### header message
+```json
+{
+    "htype", "header",
+    "msg_number", 0,
+    "filename", "/tmp/testfile.h5"
+}
 ```
 
-## Integrate with your tools
+### image message 
+is a multipart zmq message with 2 parts. First part is a json header
+```json
+{
+    "htype", "image",
+    "msg_number", 1,
+    "frame": 0,
+    "shape": (100, 100),
+    "type": "uint32",
+    "compression", "bslz4"
+}
+second part is the binary blob of the array with the above description
+```
+compression can be:
+* "bslz4" (bitshuffle lz4 compression)
+* "none"
 
-- [ ] [Set up project integrations](https://gitlab.maxiv.lu.se/scisw/detectors/streaming-receiver/-/settings/integrations)
+### series_end message
+```json
+{
+    "htype", "series_end",
+    "msg_number", 2
+}
+```
 
-## Collaborate with your team
+### Example code
+Here is some sample python code how to read the seconday zmq stream
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+```python
+import zmq
+import json
+import time
+import numpy as np
+from bitshuffle import decompress_lz4
 
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+hostname = 'localhost'
+context = zmq.Context()
+pull = context.socket(zmq.PULL)
+pull.connect('tcp://%s:9999' %hostname)
+while True:
+    parts = pull.recv_multipart(copy=False)
+    header = json.loads(parts[0].bytes)
+    print(header)
+    if header['htype'] == 'image':
+        if header['compression'] == 'bslz4':
+            img = decompress_lz4(parts[1].buffer, 
+                                 header['shape'], 
+                                 np.dtype(header['type']))
+        else:
+            img = np.frombuffer(parts[1], dtype=header['type'])
+            img = img.reshape(header['shape']
+```
