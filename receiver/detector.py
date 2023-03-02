@@ -180,7 +180,7 @@ class Lambda(Detector):
                 for m in range(4):
                     info = json.loads(parts[m][1].bytes)
                     for key in ['x', 'y', 'rotation']:
-                        meta[key].append(info[key])
+                        meta[key].append(int(info[key]))
                     meta['full_shape'] = info['full_shape']
                 
                 last_meta_header = meta
