@@ -19,7 +19,6 @@ formax-eiger:
   
 formax-zyla:
   class: Detector
-  nworkers: 1
   dcu_host_purple: 172.18.28.7
   rep_port: 23005
   data_port: 23006
@@ -27,15 +26,15 @@ formax-zyla:
   
 femtomax-pilatus:
   class: Detector
-  nworkers: 8
-  #dcu_host_purple: 172.18.22.6
-  dcu_host_purple: localhost
+  nworkers: 4
+  dcu_host_purple: 172.18.22.6
+  #dcu_host_purple: localhost
   rep_port: 27000
   data_port: 27001
   dset_name: /entry/instrument/pilatus/data
   pipeline: PilatusPipeline
-  rotate: true
+  rotate: false
   compress: false
-  tot: true
+  tot: /data/staff/femtomax/pilatus_tot_daq_configuration/tot_to_energy_tensor.npz
   
   

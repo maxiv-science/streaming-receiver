@@ -10,11 +10,10 @@ from .processing import convert_tot, decompress_cbf
 class PilatusPipeline():
     def __init__(self, config):
         self.compress = config.get('compress', True)
-        self.rotation = config.get('rotation', 0)
-        self.tot = config.get('tot', 0)
+        self.rotation = config.get('rotate', 0)
+        self.tot = config.get('tot', None)
         if self.tot:
-            tot_file = '/data/staff/common/clewen/tot_to_energy_tensor.npz'
-            self.tot_tensor = np.load(tot_file)['tot_to_energy_tensor']
+            self.tot_tensor = np.load(self.tot)['tot_to_energy_tensor']
             print('tot_tensor', self.tot_tensor.shape)
             
     def __call__(self, header, parts):
@@ -23,10 +22,10 @@ class PilatusPipeline():
         header['compression'] = 'none'
                
         if self.tot:
-            pass
-            #output = np.empty(img.shape, dtype=np.float32)
-            #convert_tot(img, self.tot_tensor, output)
-            #header['type'] = 'float32'
+            output = np.empty(img.shape, dtype=np.float32)
+            convert_tot(img, self.tot_tensor, output)
+            img = output
+            header['type'] = 'float32'
         
         if self.rotation:
             img = np.rot90(img, 1)
