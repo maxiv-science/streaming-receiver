@@ -67,7 +67,7 @@ class Detector():
                 if self.pipeline:
                     output = self.pipeline(header, parts)
                 else:
-                    output = [header, parts[1:]]
+                    output = [header, *parts[1:]]
                 queue.put(output)
             else:
                 rest = [json.loads(p.bytes) for p in parts[1:]]
