@@ -2,4 +2,3 @@ include:
   - project: 'scisw/gitlabci'
     file: 
       - '/conda.yml'
-      - '/docker.yml'
