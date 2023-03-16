@@ -1,4 +1,10 @@
+stages:
+  - build
+  - upload
+  - container
+
 include:
   - project: 'scisw/gitlabci'
     file: 
       - '/conda.yml'
+      - '/docker.yml'
