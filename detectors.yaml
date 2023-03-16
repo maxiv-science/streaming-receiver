@@ -37,4 +37,11 @@ femtomax-pilatus:
   compress: false
   tot: /data/staff/femtomax/pilatus_tot_daq_configuration/tot_to_energy_tensor.npz
   
+dummy-eiger:
+  class: Eiger
+  dcu_host_purple: localhost
+  rep_port: 26000
+  data_port: 26001
+  dset_name: /entry/instrument/eiger/data
+  
   

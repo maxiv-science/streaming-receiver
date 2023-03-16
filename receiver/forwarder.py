@@ -7,6 +7,10 @@ class Forwarder():
     def __init__(self, context, port):
         self.nclients = 0
         self.push_socket = context.socket(zmq.PUSH)
+        self.push_socket.setsockopt(zmq.TCP_KEEPALIVE, 1)
+        self.push_socket.setsockopt(zmq.TCP_KEEPALIVE_CNT, 10)
+        self.push_socket.setsockopt(zmq.TCP_KEEPALIVE_IDLE, 60)
+        self.push_socket.setsockopt(zmq.TCP_KEEPALIVE_INTVL, 1)
         self.push_socket.bind(f'tcp://*:{port}')
         self.monitor = self.push_socket.get_monitor_socket()
         asyncio.create_task(self.event_monitor())
