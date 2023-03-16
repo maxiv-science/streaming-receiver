@@ -1,47 +1,5 @@
-stages:
-  - build
-  - upload
-  - container
-  
-variables:
-  DOCKER_REGISTRY: harbor.maxiv.lu.se/daq
-  IMAGE_NAME: $CI_PROJECT_NAME
-
-default:
-  tags: [kubernetes]
-
-conda_build:
-  stage: build
-  image: docker.maxiv.lu.se/conda-build:latest
-  script:
-    - conda build  --output-folder=package ./recipe --python=3.11
-  artifacts:
-    paths:
-      - package/*/*.conda
-    expire_in: 1 week
-    
-upload_anaconda:
-  stage: upload
-  image: docker.maxiv.lu.se/conda-build:latest
-  rules:
-    - if: $CI_COMMIT_TAG
-  needs:
-    - job: conda_build
-      artifacts: true
-  script:
-    - echo "upload conda package"
-    - anaconda -t $TOKEN upload -u maxiv --force package/*/*.conda
-
-build_container:
-  stage: container
-  image: harbor.maxiv.lu.se/infrastructure/buildah:latest
-  rules:
-    - if: $CI_COMMIT_TAG
-  before_script:
-    - buildah login -u "$DOCKER_REGISTRY_LOGIN" -p "$DOCKER_REGISTRY_PASSWORD" $DOCKER_REGISTRY
-  script:
-    - buildah bud --build-arg version=${CI_COMMIT_TAG} -t "${DOCKER_REGISTRY}/${IMAGE_NAME}:${CI_COMMIT_TAG}" .
-    - buildah tag "${DOCKER_REGISTRY}/${IMAGE_NAME}:${CI_COMMIT_TAG}" "${DOCKER_REGISTRY}/${IMAGE_NAME}:latest"
-    - buildah push "${DOCKER_REGISTRY}/${IMAGE_NAME}:${CI_COMMIT_TAG}"
-
-
+include:
+  - project: 'scisw/gitlabci'
+    file: 
+      - '/conda.yml'
+      - '/docker.yml'
