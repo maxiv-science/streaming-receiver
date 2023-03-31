@@ -3,7 +3,7 @@ import asyncio
 import argparse
 import zmq.asyncio
 from receiver.queuey import Queuey
-from receiver.detector import Detector, Eiger, Lambda, PilatusPipeline
+from receiver.detector import Detector, Eiger, Lambda, PilatusPipeline, OrcaPipeline
 from receiver.collector import Collector
 from receiver.filewriter import FileWriter
 from receiver.forwarder import Forwarder
@@ -39,6 +39,8 @@ async def main(config):
         pipeline = None
         if pipeline_name == 'PilatusPipeline':
             pipeline = PilatusPipeline(config)
+        elif pipeline_name == 'OrcaPipeline':
+            pipeline = OrcaPipeline(config)
         detector = Detector(pipeline)
 
     worker_queue = Queuey()

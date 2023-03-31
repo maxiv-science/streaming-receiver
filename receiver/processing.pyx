@@ -4,13 +4,15 @@ cimport cython
 from libc.stdint cimport uint8_t, uint16_t, int32_t
 
 cdef extern void read_cbf(char* cbf, int32_t* output) nogil
-cdef extern void unpack_mono12p(const uint8_t* data, int size, uint16_t* output) nogil
+cdef extern void c_unpack_mono12p(const uint8_t* data, int size, uint16_t* output) nogil
 
 def decompress_cbf(char[::1] blob, int32_t[:, ::1] output):
     with nogil:
         read_cbf(&blob[0], &output[0, 0])
-
-
+        
+def unpack_mono12p(uint8_t[::1] data, int size, uint16_t[:, ::1] output):
+    c_unpack_mono12p(&data[0], size, &output[0, 0])
+    
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def convert_tot(int32_t[:, ::1] tot, double[:, :, ::1] tot_tensor, float[:, ::1] output):

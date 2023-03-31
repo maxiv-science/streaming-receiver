@@ -5,7 +5,7 @@ from itertools import count
 from threading import Thread
 from bitshuffle import compress_lz4
 from .queuey import Queuey
-from .processing import convert_tot, decompress_cbf
+from .processing import convert_tot, decompress_cbf, unpack_mono12p
 
 class PilatusPipeline():
     def __init__(self, config):
@@ -35,6 +35,20 @@ class PilatusPipeline():
             header['compression'] = 'bslz4'
             img = compress_lz4(img)
             
+        return [header, img]
+    
+class OrcaPipeline():
+    def __init__(self, config):
+        pass
+    
+    def __call__(self, header, parts):
+        print('pipeline', header)
+        if header['type'] == 'mono12p':
+            img = np.empty(header['shape'], dtype=np.uint16)
+            unpack_mono12p(parts[1], len(parts[1]), img)
+            header['type'] = 'uint16'
+        else:
+            img = parts[1]
         return [header, img]
         
         

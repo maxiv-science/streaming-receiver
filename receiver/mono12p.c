@@ -21,7 +21,7 @@ void unpack_mono12p_avx(const uint8_t* data, uint16_t* output)
     _mm256_storeu_si256((__m256i*)output, _mm256_blend_epi16(lo, hi, 0b10101010));
 }
 
-void unpack_mono12p(const uint8_t* data, int size, uint16_t* output)
+void c_unpack_mono12p(const uint8_t* data, int size, uint16_t* output)
 {
     int i = 0;
     int j = 0;

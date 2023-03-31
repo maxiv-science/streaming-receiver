@@ -16,13 +16,21 @@ formax-eiger:
   rep_port: 23003
   data_port: 23004
   dset_name: /entry/instrument/eiger/data
-  
+    
 formax-zyla:
   class: Detector
   dcu_host_purple: 172.18.28.7
   rep_port: 23005
   data_port: 23006
   dset_name: /entry/instrument/zyla/data
+  
+formax-orca:
+  class: Detector
+  dcu_host_purple: localhost
+  rep_port: 23007
+  data_port: 23008
+  dset_name: /entry/instrument/orca/data
+  pipeline: OrcaPipeline
   
 femtomax-pilatus:
   class: Detector
