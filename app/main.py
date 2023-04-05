@@ -60,8 +60,9 @@ async def main(config):
         detector = Lambda()
     else:
         pipeline_name = config.get('pipeline', None)
-        pipeline = None
-        if pipeline_name == 'PilatusPipeline':
+        if pipeline_name is None:
+            pipeline = None
+        elif pipeline_name == 'PilatusPipeline':
             pipeline = PilatusPipeline(config)
         elif pipeline_name == 'OrcaPipeline':
             pipeline = OrcaPipeline(config)
