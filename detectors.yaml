@@ -1,33 +1,34 @@
 ### Formax
 formax-lambda:
   class: Lambda
-  dcu_host_purple: [172.18.28.4,
-                    172.18.28.4,
-                    172.18.28.5,
-                    172.18.28.5]
-  
-  rep_port: 23001
+  #dcu_host_purple: [172.18.28.4,
+  #                  172.18.28.4,
+  #                  172.18.28.5,
+  #                  172.18.28.5]
+  dcu_host_purple: [localhost,
+                    localhost,
+                    localhost,
+                    localhost]
+  api_port: 8001
   data_port: 23002
   dset_name: /entry/instrument/lambda/data
   
 formax-eiger:
   class: Eiger
   dcu_host_purple: 172.18.28.6
-  rep_port: 23003
   data_port: 23004
   dset_name: /entry/instrument/eiger/data
     
 formax-zyla:
   class: Detector
   dcu_host_purple: 172.18.28.7
-  rep_port: 23005
   data_port: 23006
   dset_name: /entry/instrument/zyla/data
   
 formax-orca:
   class: Detector
+  nworkers: 2
   dcu_host_purple: localhost
-  rep_port: 23007
   data_port: 23008
   dset_name: /entry/instrument/orca/data
   pipeline: OrcaPipeline
@@ -36,8 +37,6 @@ femtomax-pilatus:
   class: Detector
   nworkers: 4
   dcu_host_purple: 172.18.22.6
-  #dcu_host_purple: localhost
-  rep_port: 27000
   data_port: 27001
   dset_name: /entry/instrument/pilatus/data
   pipeline: PilatusPipeline
@@ -48,7 +47,7 @@ femtomax-pilatus:
 dummy-eiger:
   class: Eiger
   dcu_host_purple: localhost
-  rep_port: 26000
+  api_port: 8001
   data_port: 26001
   dset_name: /entry/instrument/eiger/data
   

@@ -25,4 +25,6 @@ requirements:
     - h5py
     - pyyaml
     - pyzmq
+    - uvicorn
+    - fastapi
     - bitshuffle-python

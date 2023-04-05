@@ -42,7 +42,6 @@ class OrcaPipeline():
         pass
     
     def __call__(self, header, parts):
-        print('pipeline', header)
         if header['type'] == 'mono12p':
             img = np.empty(header['shape'], dtype=np.uint16)
             unpack_mono12p(parts[1], len(parts[1]), img)

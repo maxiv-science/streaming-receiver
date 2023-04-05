@@ -1,33 +1,57 @@
 import yaml
+import pickle
+import uvicorn
 import asyncio
 import argparse
 import zmq.asyncio
+from fastapi import FastAPI, Response, Request
 from receiver.queuey import Queuey
-from receiver.detector import Detector, Eiger, Lambda, PilatusPipeline, OrcaPipeline
 from receiver.collector import Collector
-from receiver.filewriter import FileWriter
 from receiver.forwarder import Forwarder
+from receiver.filewriter import FileWriter
+from receiver.processing import downsample
+from receiver.detector import Detector, Eiger, Lambda, PilatusPipeline, OrcaPipeline
 
-async def server(context, collector, config):
-    port = config['rep_port']
-    rep_socket = context.socket(zmq.REP)
-    # tcp keepalive messages to make sure connection stays alive
-    rep_socket.setsockopt(zmq.TCP_KEEPALIVE, 1)
-    rep_socket.setsockopt(zmq.TCP_KEEPALIVE_CNT, 10)
-    rep_socket.setsockopt(zmq.TCP_KEEPALIVE_IDLE, 60)
-    rep_socket.setsockopt(zmq.TCP_KEEPALIVE_INTVL, 1)
-    rep_socket.bind(f'tcp://*:{port}')
-    while True:
-        req = await rep_socket.recv()
-        if req == b'received_frames':
-            await rep_socket.send_string(str(collector.received_frames))
-        elif req == b'status':
-            await rep_socket.send_json(collector.status)
-        elif req == b'last_frame':
-            await rep_socket.send_json(collector.last_frame[0], flags=zmq.SNDMORE)
-            await rep_socket.send_multipart(collector.last_frame[1:])
+app = FastAPI()
+@app.get('/status')
+def status(req: Request):
+    return req.app.state.collector.status
+
+@app.get('/received_frames')
+async def received_frames(req: Request):
+    return {'value': req.app.state.collector.received_frames}
+
+@app.get('/downsample')
+async def get_downsample(req: Request):
+    return {'value': req.app.state.collector.downsample}
+
+@app.post('/downsample')
+async def post_downsample(req: Request, value: int):
+    req.app.state.collector.downsample = value
+    return {'value': value}
+
+# since this is a sync function fastapi will run this function in a threadpool
+# so make sure it is threadsafe
+@app.get('/last_frame', response_class=Response)
+def last_frame(req: Request):
+    downsample_factor = req.app.state.collector.downsample
+    last_frame = req.app.state.collector.last_frame.read()
+    if downsample_factor > 1 and last_frame[0]['compression'] == 'none':
+        img = downsample(last_frame[1], downsample_factor)
+        last_frame[0]['shape'] = img.shape
+        last_frame[1] = img
+        payload = pickle.dumps(last_frame)
+        
+    else:
+        parts = []
+        for p in last_frame:
+            if isinstance(p, zmq.Frame):
+                parts.append(p.bytes)
+            else:
+                parts.append(p)
+        payload = pickle.dumps(parts)
+    return Response(payload, media_type='image/pickle')
     
-
 async def main(config):
     class_name = config['class']
     if class_name == 'Eiger':
@@ -41,6 +65,8 @@ async def main(config):
             pipeline = PilatusPipeline(config)
         elif pipeline_name == 'OrcaPipeline':
             pipeline = OrcaPipeline(config)
+        else:
+            raise RuntimeError(f'Unknow pipeline name: {pipeline_name}')
         detector = Detector(pipeline)
 
     worker_queue = Queuey()
@@ -52,8 +78,13 @@ async def main(config):
     
     context = zmq.asyncio.Context()
     forwarder = Forwarder(context, config['data_port'])
-    await asyncio.gather(collector.run(worker_queue, writer_queue, [forwarder,]),
-                         server(context, collector, config))
+    asyncio.create_task(collector.run(worker_queue, writer_queue, [forwarder,]))
+    
+    app.state.collector = collector
+    port = config.get('api_port', 5000)
+    config = uvicorn.Config(app, host='0.0.0.0', port=port, log_level='warning')
+    server = uvicorn.Server(config)
+    await server.serve()
     
 #if __name__ == '__main__':
 parser = argparse.ArgumentParser()

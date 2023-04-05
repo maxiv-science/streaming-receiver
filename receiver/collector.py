@@ -31,11 +31,43 @@ async def ordered_recv(queue: Queuey):
         else:
             cache[msg_number] = parts
             
+
+# seqlock algorithm from linux to threadsafe read data while producer could be updating the data
+# works by updating a counter and if the counter is even the data is good and if the counter is odd
+# the data is being written to
+class SeqLock():
+    def __init__(self, data):
+        self.counter = 0
+        self.data = data
+        
+    def write(self, data):
+        self.counter += 1
+        self.data = data
+        self.counter += 1
+        
+    def _try_read(self):
+        counter = self.counter
+        # write in progress if counter is odd
+        if (counter & 1 != 0):
+            return False, None
+        
+        data = self.data.copy()
+        # make sure counter was not modified while copying data
+        return counter == self.counter, data
+        
+    def read(self):
+        success, data = self._try_read()
+        while not success:
+            success, data = self._try_read()
+        return data
+        
+            
 class Collector():
     def __init__(self):
-        self.received_frames = 0
         self.frame_rate = 0
-        self.last_frame = [{}, b'']
+        self.downsample = 1
+        self.received_frames = 0
+        self.last_frame = SeqLock([{}, b''])
         self.status = {'state': 'idle'}
         
     async def _update_metrics(self):
@@ -61,7 +93,7 @@ class Collector():
                 self.received_frames = 0
             elif header['htype'] == 'image':
                 self.received_frames += 1
-                self.last_frame = parts
+                self.last_frame.write(parts)
             writer_queue.put(parts)
             for forwarder in forwarders:
                 await forwarder.forward(parts)

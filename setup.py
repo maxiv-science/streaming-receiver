@@ -3,7 +3,8 @@ from Cython.Build import cythonize
 
 sources = ['receiver/processing.pyx', 
            'receiver/cbf.c', 
-           'receiver/mono12p.c']
+           'receiver/mono12p.c',
+           'receiver/downsample.c']
 extentions = [Extension('receiver.processing', 
                         sources,
                         extra_compile_args=['-mavx2'])]
