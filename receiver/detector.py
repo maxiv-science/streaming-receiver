@@ -69,7 +69,8 @@ class Detector():
     def worker(self, config, queue: Queuey):
         data_pull = self.context.socket(zmq.PULL)
         host = config['dcu_host_purple']
-        data_pull.connect(f'tcp://{host}:9999')
+        port = config.get('dcu_port_purple', 9999)
+        data_pull.connect(f'tcp://{host}:{port}')
         
         while True:
             parts = data_pull.recv_multipart(copy=False)

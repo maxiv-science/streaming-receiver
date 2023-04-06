@@ -29,6 +29,8 @@ formax-orca:
   class: Detector
   nworkers: 2
   dcu_host_purple: localhost
+  dcu_port_purple: 9999
+  api_port: 5000
   data_port: 23008
   dset_name: /entry/instrument/orca/data
   pipeline: OrcaPipeline
