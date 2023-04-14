@@ -36,12 +36,12 @@ async def post_downsample(req: Request, value: int):
 def last_frame(req: Request):
     downsample_factor = req.app.state.collector.downsample
     last_frame = req.app.state.collector.last_frame.read()
-    if downsample_factor > 1 and last_frame[0]['compression'] == 'none':
-        img = downsample(last_frame[1], downsample_factor)
-        last_frame[0]['shape'] = img.shape
-        last_frame[1] = img
-        payload = pickle.dumps(last_frame)
-        
+    header = last_frame[0]
+    if downsample_factor > 1 and header['compression'] == 'none' and header['type'] == 'uint16':
+        img = downsample(last_frame[1], header['shape'], downsample_factor)
+        header = header.copy()
+        header['shape'] = img.shape
+        payload = pickle.dumps([header, img])
     else:
         parts = []
         for p in last_frame:

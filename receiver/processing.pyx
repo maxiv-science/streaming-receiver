@@ -3,6 +3,9 @@
 cimport cython
 import numpy as np
 from libc.stdint cimport uint8_t, uint16_t, int32_t
+from cpython cimport PyObject_GetBuffer, \
+                     PyBUF_ANY_CONTIGUOUS, \
+                     PyBuffer_Release
 
 cdef extern void read_cbf(char* cbf, int32_t* output) nogil
 cdef extern void c_unpack_mono12p(const uint8_t* data, int size, uint16_t* output) nogil
@@ -32,9 +35,9 @@ def convert_tot(int32_t[:, ::1] tot, double[:, :, ::1] tot_tensor, float[:, ::1]
                 else:
                     output[i, j] = -1.0
    
-def downsample(uint16_t[:, ::1] img, int factor):
-    cdef int rows = img.shape[0]
-    cdef int cols = img.shape[1]
+def downsample(img, shape, int factor):
+    cdef int rows = shape[0]
+    cdef int cols = shape[1]
     
     m = rows // factor
     if rows % factor:
@@ -45,5 +48,8 @@ def downsample(uint16_t[:, ::1] img, int factor):
         n += 1
     
     cdef uint16_t[:,:] output = np.empty((m, n), dtype=np.uint16)
-    c_downsample(&img[0, 0], rows, cols, factor, &output[0, 0])
+    cdef Py_buffer view
+    PyObject_GetBuffer(img, &view, PyBUF_ANY_CONTIGUOUS)
+    c_downsample(<uint16_t*>view.buf, rows, cols, factor, &output[0, 0])
+    PyBuffer_Release(&view)
     return output.base

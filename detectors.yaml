@@ -22,13 +22,14 @@ formax-eiger:
 formax-zyla:
   class: Detector
   dcu_host_purple: 172.18.28.7
+  dcu_port_purple: 9966
   data_port: 23006
   dset_name: /entry/instrument/zyla/data
   
 formax-orca:
   class: Detector
   nworkers: 2
-  dcu_host_purple: localhost
+  dcu_host_purple: 172.18.28.7
   dcu_port_purple: 9999
   api_port: 5000
   data_port: 23008
