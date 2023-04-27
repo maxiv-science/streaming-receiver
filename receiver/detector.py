@@ -10,7 +10,7 @@ from .processing import convert_tot, decompress_cbf, unpack_mono12p
 class PilatusPipeline():
     def __init__(self, config):
         self.compress = config.get('compress', True)
-        self.rotation = config.get('rotate', 0)
+        self.rotation = config.get('rotate', False)
         self.tot = config.get('tot', None)
         if self.tot:
             self.tot_tensor = np.load(self.tot)['tot_to_energy_tensor']
@@ -27,8 +27,9 @@ class PilatusPipeline():
             img = output
             header['type'] = 'float32'
         
+        # rotation for the custom cosaxs L shaped pilatus 2M
         if self.rotation:
-            img = np.rot90(img, 1)
+            img = np.rot90(img, -1)
             img = np.ascontiguousarray(img)
                
         if self.compress:
