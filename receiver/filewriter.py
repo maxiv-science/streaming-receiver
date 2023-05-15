@@ -14,6 +14,7 @@ class FileWriter():
         self._fh = None
         self._thread = None
         self._dset_name = dset_name
+        self._number_dset_name = None
         
     def run(self, worker_queue: Queuey, writer_queue: Queuey):
         self._thread = Thread(target=self._main, args=(worker_queue, writer_queue))
@@ -46,6 +47,8 @@ class FileWriter():
                     if len(parts) > 1:
                         for key, value in parts[1].items():
                             group.create_dataset(key, data=value)
+                    group.create_dataset("sequence_number", (0,), maxshape=(None, ), dtype='i32')
+                    self._number_dset_name = f"{group_name}/sequence_number"
             else:
                 self._fh = None
             status = {'htype': 'status',
@@ -91,7 +94,11 @@ class FileWriter():
                                                chunks=chunks,
                                                compression=compression,
                                                compression_opts=compression_opts)
-                            
+            if "frame" in header and self._number_dset_name:
+                ndset = self._fh.get(self._number_dset_name)
+                length = ndset.shape[0]
+                ndset.resize(length + 1, axis=0)
+                ndset[length] = int(header["frame"])
             n = dset.shape[0]
             dset.resize(n+1, axis=0)
             offsets = [n, *[0]*(dset.ndim-1)]
