@@ -2,6 +2,7 @@ import os
 import json
 import h5py
 import bitshuffle
+import numpy as np
 from threading import Thread
 from datetime import datetime
 from .queuey import Queuey
@@ -47,7 +48,7 @@ class FileWriter():
                     if len(parts) > 1:
                         for key, value in parts[1].items():
                             group.create_dataset(key, data=value)
-                    group.create_dataset("sequence_number", (0,), maxshape=(None, ), dtype='i32')
+                    group.create_dataset("sequence_number", (0,), maxshape=(None, ), dtype=np.uint16)
                     self._number_dset_name = f"{group_name}/sequence_number"
             else:
                 self._fh = None
