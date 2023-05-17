@@ -48,7 +48,7 @@ class FileWriter():
                     if len(parts) > 1:
                         for key, value in parts[1].items():
                             group.create_dataset(key, data=value)
-                    group.create_dataset("sequence_number", (0,), maxshape=(None, ), dtype=np.uint16)
+                    group.create_dataset("sequence_number", (0,), maxshape=(None, ), dtype=np.uint32)
                     self._number_dset_name = f"{group_name}/sequence_number"
             else:
                 self._fh = None
@@ -97,6 +97,8 @@ class FileWriter():
                                                compression_opts=compression_opts)
             if "frame" in header and self._number_dset_name:
                 ndset = self._fh.get(self._number_dset_name)
+                if not ndset:
+                    ndset = self._fh.create_dataset(self._number_dset_name, (0,), maxshape=(None,), dtype=np.uint32)
                 length = ndset.shape[0]
                 ndset.resize(length + 1, axis=0)
                 ndset[length] = int(header["frame"])
