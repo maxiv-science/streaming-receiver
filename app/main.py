@@ -10,7 +10,8 @@ from receiver.collector import Collector
 from receiver.forwarder import Forwarder
 from receiver.filewriter import FileWriter
 from receiver.processing import downsample
-from receiver.detector import Detector, Eiger, Lambda, PilatusPipeline, OrcaPipeline
+from receiver.detector import Detector
+from receiver import detector as available_classes
 
 app = FastAPI()
 @app.get('/status')
@@ -54,18 +55,17 @@ def last_frame(req: Request):
     
 async def main(config):
     class_name = config['class']
-    if class_name == 'Eiger':
-        detector = Eiger()
-    elif class_name == 'Lambda':
-        detector = Lambda()
+    available_detectors = {k:v for k,v in available_classes.__dict__.items() if isinstance(v, type) and issubclass(v, Detector)}
+    if class_name in available_detectors:
+        detector = available_detectors[class_name]()
     else:
         pipeline_name = config.get('pipeline', None)
+        available_pipelines = {k: v for k, v in available_classes.__dict__.items() if
+                               isinstance(v, type) and not issubclass(v, Detector)}
         if pipeline_name is None:
             pipeline = None
-        elif pipeline_name == 'PilatusPipeline':
-            pipeline = PilatusPipeline(config)
-        elif pipeline_name == 'OrcaPipeline':
-            pipeline = OrcaPipeline(config)
+        if pipeline_name in available_pipelines:
+            pipeline = available_pipelines[pipeline_name](config)
         else:
             raise RuntimeError(f'Unknow pipeline name: {pipeline_name}')
         detector = Detector(pipeline)

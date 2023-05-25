@@ -1,6 +1,7 @@
 import zmq
 import json
 import numpy as np
+import cbor2
 from itertools import count
 from threading import Thread
 from bitshuffle import compress_lz4
@@ -202,8 +203,77 @@ class Lambda(Detector):
                 
             elif headers[0]['htype'] == "series_end":
                 queue.put([headers[0],])
-                
-        
-        
+
+
+def decode_multi_dim_array(tag):
+    shape, contents = tag.value
+    # tuple of shape, dtype, blob
+    return shape, *contents
+
+def decode_compression(tag):
+    algorithm, elem_size, encoded = tag.value
+    return encoded
+
+tag_decoders = {
+    40: lambda tag: decode_multi_dim_array(tag),
+    68: lambda tag: (np.uint8, tag.value),
+    69: lambda tag: (np.uint16, tag.value),
+    70: lambda tag: (np.uint32, tag.value),
+    85: lambda tag: (np.float32, tag.value),
+    56500: lambda tag: decode_compression(tag),
+}
+
+def tag_hook(decoder, tag):
+    # print(tag.tag)
+    tag_decoder = tag_decoders.get(tag.tag)
+    return tag_decoder(tag) if tag_decoder else tag
+
+
+class DectrisStream2(Detector):
+    def __init__(self):
+        super().__init__()
+        self._msg_number = count(0)
+
+    def worker(self, config, queue: Queuey):
+        data_pull = self.context.socket(zmq.PULL)
+        host = config['dcu_host_purple']
+        data_pull.connect(f'tcp://{host}:31001')
+
+        while True:
+            msg = data_pull.recv(copy=False)
+            msg = cbor2.loads(msg.buffer, tag_hook=tag_hook)
+            if msg['type'] == 'start':
+                filename = json.loads(msg['user_data'])['filename']
+                meta_header = {'htype': 'header',
+                               'msg_number': next(self._msg_number),
+                               'filename': filename}
+
+                queue.put([meta_header,])
+
+            elif msg['type'] == 'image':
+                nthresh = len(msg['data'])
+                compression = 'bslz4'  # if 'bs' in info['encoding'] else 'none'
+                out = []
+                for name, data in msg['data'].items():
+                    shape, dtype, blob = data
+
+                    if not out:
+                        data_header = {'htype': 'image',
+                                       'msg_number': next(self._msg_number),
+                                       'frame': msg['image_id'],
+                                       'shape': (nthresh, *shape),
+                                       'chunks': (1, *shape),
+                                       'type': dtype,
+                                       'compression': compression}
+                        out.append(data_header)
+
+                    out.append(blob)
+
+                queue.put(out)
+
+            elif msg['type'] == 'end':
+                end_header = {'htype': 'series_end',
+                              'msg_number': next(self._msg_number)}
+                queue.put([end_header, ])
                     
            

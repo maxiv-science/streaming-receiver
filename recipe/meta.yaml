@@ -28,3 +28,4 @@ requirements:
     - uvicorn
     - fastapi
     - bitshuffle-python
+    - cbor2
