@@ -261,10 +261,13 @@ class DectrisStream2(Detector):
                         data_header = {'htype': 'image',
                                        'msg_number': next(self._msg_number),
                                        'frame': msg['image_id'],
-                                       'shape': (nthresh, *shape),
-                                       'chunks': (1, *shape),
+                                       'shape': shape,
                                        'type': dtype,
                                        'compression': compression}
+                        if nthresh > 1:
+                            data_header['shape'] = (nthresh, *shape)
+                            data_header['chunks'] = (1, *shape)
+
                         out.append(data_header)
 
                     out.append(blob)
