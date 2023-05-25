@@ -64,7 +64,7 @@ async def main(config):
                                isinstance(v, type) and not issubclass(v, Detector)}
         if pipeline_name is None:
             pipeline = None
-        if pipeline_name in available_pipelines:
+        elif pipeline_name in available_pipelines:
             pipeline = available_pipelines[pipeline_name](config)
         else:
             raise RuntimeError(f'Unknow pipeline name: {pipeline_name}')
