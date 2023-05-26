@@ -30,8 +30,10 @@ def convert_tot(int32_t[:, ::1] tot, double[:, :, ::1] tot_tensor, float[:, ::1]
         for i in range(rows):
             for j in range(cols):
                 value = tot[i, j]
-                if value > 0 and value < max_tot:
+                if value >= 0 and value < max_tot:
                     output[i, j] = tot_tensor[i, j, value]
+                elif value >= max_tot:
+                    output[i, j] = -2.0
                 else:
                     output[i, j] = -1.0
    
