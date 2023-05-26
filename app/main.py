@@ -57,18 +57,19 @@ async def main(config):
     class_name = config['class']
     available_detectors = {k:v for k,v in available_classes.__dict__.items() if isinstance(v, type) and issubclass(v, Detector)}
     if class_name in available_detectors:
-        detector = available_detectors[class_name]()
+        detector_class = available_detectors[class_name]
     else:
-        pipeline_name = config.get('pipeline', None)
-        available_pipelines = {k: v for k, v in available_classes.__dict__.items() if
-                               isinstance(v, type) and not issubclass(v, Detector)}
-        if pipeline_name is None:
-            pipeline = None
-        elif pipeline_name in available_pipelines:
-            pipeline = available_pipelines[pipeline_name](config)
-        else:
-            raise RuntimeError(f'Unknow pipeline name: {pipeline_name}')
-        detector = Detector(pipeline)
+        raise RuntimeError(f'Unknow detector name: {class_name}')
+    pipeline_name = config.get('pipeline', None)
+    available_pipelines = {k: v for k, v in available_classes.__dict__.items() if
+                           isinstance(v, type) and not issubclass(v, Detector)}
+    if pipeline_name is None:
+        pipeline = None
+    elif pipeline_name in available_pipelines:
+        pipeline = available_pipelines[pipeline_name](config)
+    else:
+        raise RuntimeError(f'Unknow pipeline name: {pipeline_name}')
+    detector = detector_class(pipeline)
 
     worker_queue = Queuey()
     writer_queue = Queuey()
