@@ -89,8 +89,8 @@ class Detector():
                 queue.put([header, *rest]) 
 
 class Eiger(Detector):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, pipeline=None):
+        super().__init__(pipeline=pipeline)
         self._msg_number = count(0)
     
     def handle_header(self, header, parts, queue):
@@ -149,8 +149,8 @@ class Eiger(Detector):
                 
                 
 class Lambda(Detector):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, pipeline=None):
+        super().__init__(pipeline=pipeline)
         
     def worker(self, config, queue: Queuey):
         data_pull = []
@@ -230,8 +230,8 @@ def tag_hook(decoder, tag):
 
 
 class DectrisStream2(Detector):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, pipeline=None):
+        super().__init__(pipeline=pipeline)
         self._msg_number = count(0)
 
     def worker(self, config, queue: Queuey):
@@ -247,14 +247,24 @@ class DectrisStream2(Detector):
                 meta_header = {'htype': 'header',
                                'msg_number': next(self._msg_number),
                                'filename': filename}
+                keys = ['count_time',
+                        'countrate_correction_enabled',
+                        'flatfield_enabled',
+                        'virtual_pixel_interpolation_enabled',
+                        'pixel_mask_enabled',
+                        'number_of_images',
+                        ]
 
-                queue.put([meta_header,])
+                meta_info = {key: msg[key] for key in keys if key in msg}
+                meta_info.update(msg['threshold_energy'])
+                queue.put([meta_header,meta_info])
 
             elif msg['type'] == 'image':
                 nthresh = len(msg['data'])
                 compression = 'bslz4'  # if 'bs' in info['encoding'] else 'none'
                 out = []
-                for name, data in msg['data'].items():
+                for i in range(nthresh):
+                    data = msg['data'][f"threshold_{i+1}"]
                     shape, dtype, blob = data
 
                     if not out:
