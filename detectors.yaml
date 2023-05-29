@@ -46,6 +46,13 @@ femtomax-pilatus:
   rotate: false
   compress: false
   tot: /data/staff/femtomax/pilatus_tot_daq_configuration/tot_to_energy_tensor.npz
+
+danmax-pilatus4:
+  class: DectrisStream2
+  dcu_host_purple: 172.18.26.7
+  api_port: 8001
+  data_port: 26001
+  dset_name: /entry/instrument/pilatus4/data
   
 dummy-eiger:
   class: Eiger
