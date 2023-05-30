@@ -31,8 +31,6 @@ class Forwarder():
             msgs = []
             for p in parts:
                 if isinstance(p, dict):
-                    if "type" in p and type(p["type"]) == type:
-                        p["type"] = p["type"](1).dtype.name
                     msgs.append(json.dumps(p).encode())
                 else:
                     msgs.append(p)

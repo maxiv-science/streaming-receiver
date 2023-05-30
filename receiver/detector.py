@@ -268,6 +268,7 @@ class DectrisStream2(Detector):
                     shape, dtype, blob = data
 
                     if not out:
+                        dtype = dtype([]).dtype.name
                         data_header = {'htype': 'image',
                                        'msg_number': next(self._msg_number),
                                        'frame': msg['image_id'],
