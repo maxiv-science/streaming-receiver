@@ -216,6 +216,7 @@ def decode_compression(tag):
 
 tag_decoders = {
     40: lambda tag: decode_multi_dim_array(tag),
+    64: lambda tag: (np.uint8, tag.value),
     68: lambda tag: (np.uint8, tag.value),
     69: lambda tag: (np.uint16, tag.value),
     70: lambda tag: (np.uint32, tag.value),
@@ -224,7 +225,7 @@ tag_decoders = {
 }
 
 def tag_hook(decoder, tag):
-    # print(tag.tag)
+    #print(tag.tag)
     tag_decoder = tag_decoders.get(tag.tag)
     return tag_decoder(tag) if tag_decoder else tag
 
