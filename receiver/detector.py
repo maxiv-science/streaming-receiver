@@ -12,6 +12,7 @@ class PilatusPipeline():
     def __init__(self, config):
         self.compress = config.get('compress', True)
         self.rotation = config.get('rotate', False)
+        self.mask = config.get('mask', [])
         self.tot = config.get('tot', None)
         if self.tot:
             self.tot_tensor = np.load(self.tot)['tot_to_energy_tensor']
@@ -33,6 +34,10 @@ class PilatusPipeline():
             img = np.rot90(img, -1)
             img = np.ascontiguousarray(img)
             header['shape'] = header['shape'][::-1]
+
+        # mask for the custom cosaxs L shaped pilatus 2M, crop after rotate
+        if self.mask:
+            img[self.mask[0][0]:self.mask[0][1], self.mask[1][0]:self.mask[1][1]] = -1
                
         if self.compress:
             header['compression'] = 'bslz4'
