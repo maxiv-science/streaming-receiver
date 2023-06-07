@@ -32,6 +32,7 @@ class PilatusPipeline():
         if self.rotation:
             img = np.rot90(img, -1)
             img = np.ascontiguousarray(img)
+            header['shape'] = header['shape'][::-1]
                
         if self.compress:
             header['compression'] = 'bslz4'
