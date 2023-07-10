@@ -61,13 +61,13 @@ class FileWriter():
                 logger.info("no file opened (live view only)")
             status = {'htype': 'status',
                       'state': 'running'}
-            logger.info('%s: send status running msg')
+            logger.info('send status running msg')
             worker_queue.put([status,])
         except Exception as e:
             status = {'htype': 'status',
                       'state': 'error',
                       'error': str(e)}
-            logger.error('%s: send status error msg')
+            logger.error('send status error msg')
             worker_queue.put([status,])
             
     def _handle_end(self, worker_queue):

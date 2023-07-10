@@ -14,13 +14,25 @@ Receivers for the following detectors:
 The configuration of the different detector is stored in the [detectors.yaml](detectors.yaml) file.
 
 ### Native
-```
+```shell
 streaming-receiver detectors.yaml nanomax-eiger
 
 ```
 ### Docker
 Docker image are automatically created in the gitlab CI when a new release is tagged. Docker compose files are provided for the different detectors and beamlines
 
+### K8s Helm
+Running with the DAQ Helm chart, it is possible to provide an additional environment variable for DEBUG output
+```yaml
+daq:
+  # Pipeline Templete
+  pipeline:
+    template: streaming_receiver
+    override: |
+      extraEnv:
+        - name: LOG_LEVEL
+          value: DEBUG
+```
 
 ## DAQ overview
 <img src="doc/daq-schema.png" alt="Pipeline overview" width="500px"/>
