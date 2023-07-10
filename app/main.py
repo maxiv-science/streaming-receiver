@@ -4,6 +4,8 @@ import uvicorn
 import asyncio
 import argparse
 import zmq.asyncio
+import logging
+import os
 from fastapi import FastAPI, Response, Request
 from receiver.queuey import Queuey
 from receiver.collector import Collector
@@ -12,6 +14,9 @@ from receiver.filewriter import FileWriter
 from receiver.processing import downsample
 from receiver.detector import Detector
 from receiver import detector as available_classes
+
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 @app.get('/status')
@@ -97,5 +102,5 @@ args = parser.parse_args()
 with open(args.config_file) as fh:
     config = yaml.load(fh, Loader=yaml.FullLoader)[args.detector]
     
-print(config)
+logger.info("load config: %s", config)
 asyncio.run(main(config))

@@ -2,12 +2,14 @@ import zmq
 import json
 import numpy as np
 import cbor2
+import logging
 from itertools import count
 from threading import Thread
 from bitshuffle import compress_lz4
 from .queuey import Queuey
 from .processing import convert_tot, decompress_cbf, unpack_mono12p
 
+logger = logging.getLogger(__name__)
 class PilatusPipeline():
     def __init__(self, config):
         self.compress = config.get('compress', True)
@@ -17,43 +19,51 @@ class PilatusPipeline():
         if self.tot:
             self.tot_tensor = np.load(self.tot)['tot_to_energy_tensor']
             print('tot_tensor', self.tot_tensor.shape)
+        logger.info("initialised PilatusPipeline with compress:%r rotate:%r mask:%s tot:%s", self.compress, self.rotation, self.mask, self.tot)
             
     def __call__(self, header, parts):
         img = np.empty(header['shape'], dtype=np.int32)
         decompress_cbf(parts[1], img)
         header['compression'] = 'none'
+        logger.debug("process call with hdr %s", header)
                
         if self.tot:
             output = np.empty(img.shape, dtype=np.float32)
             convert_tot(img, self.tot_tensor, output)
             img = output
             header['type'] = 'float32'
+            logger.debug("converted TOT")
         
         # rotation for the custom cosaxs L shaped pilatus 2M
         if self.rotation:
             img = np.rot90(img, -1)
             img = np.ascontiguousarray(img)
             header['shape'] = header['shape'][::-1]
+            logger.debug("rotated image")
 
         # mask for the custom cosaxs L shaped pilatus 2M, crop after rotate
         if self.mask:
             img[self.mask[0][0]:self.mask[0][1], self.mask[1][0]:self.mask[1][1]] = -1
+            logger.debug("masked rectangle")
                
         if self.compress:
             header['compression'] = 'bslz4'
             img = compress_lz4(img)
+            logger.debug("lz4 compressed image")
             
         return [header, img]
     
 class OrcaPipeline():
     def __init__(self, config):
         pass
+        logger.info("initialised OrcaPipeline")
     
     def __call__(self, header, parts):
         if header['type'] == 'mono12p':
             img = np.empty(header['shape'], dtype=np.uint16)
             unpack_mono12p(parts[1], len(parts[1]), img)
             header['type'] = 'uint16'
+            logger.debug("unpacked mono12p")
         else:
             img = parts[1]
         return [header, img]
@@ -66,24 +76,27 @@ class Detector():
         self.context = zmq.Context(2)
         self.threads = []
         self.pipeline = pipeline
-        
+        logger.info("initialised detector with pipeline %s", self.pipeline)
+
     def run(self, config, queue):
         nworkers = config.get('nworkers', 1)
         for i in range(nworkers):
             t = Thread(target=self.worker, args=(config, queue))
             t.start()
             self.threads.append(t)
-        
+        logger.info("created %d worker threads", nworkers)
+
     def worker(self, config, queue: Queuey):
         data_pull = self.context.socket(zmq.PULL)
         host = config['dcu_host_purple']
         port = config.get('dcu_port_purple', 9999)
         data_pull.connect(f'tcp://{host}:{port}')
+        logger.info("connected to tcp://%s:%d", host, port)
         
         while True:
             parts = data_pull.recv_multipart(copy=False)
             header = json.loads(parts[0].bytes)
-            #print(header)
+            logger.debug("received frame with header %s", header)
             if header['htype'] == 'image':
                 if self.pipeline:
                     output = self.pipeline(header, parts)
@@ -98,6 +111,7 @@ class Eiger(Detector):
     def __init__(self, pipeline=None):
         super().__init__(pipeline=pipeline)
         self._msg_number = count(0)
+        logger.info("initialised Eiger")
     
     def handle_header(self, header, parts, queue):
         info = json.loads(parts[1].bytes)
@@ -121,6 +135,7 @@ class Eiger(Detector):
             meta_info = {key: info[key] for key in keys}
         else:
             meta_info = {}
+        logger.info("processed meta_header: %s and meta_info: %s", meta_header, meta_info)
         queue.put([meta_header, meta_info])
         
     def handle_frame(self, header, parts, queue):
@@ -132,12 +147,14 @@ class Eiger(Detector):
                         'shape': info['shape'][::-1],
                         'type': info['type'],
                         'compression': compression}
+        logger.debug("handled frame with header %s", data_header)
         queue.put([data_header, parts[2]])
         
     def worker(self, config, queue: Queuey):
         data_pull = self.context.socket(zmq.PULL)
         host = config['dcu_host_purple']
         data_pull.connect(f'tcp://{host}:9999')
+        logger.info("connected to tcp://%s:9999", host)
        
         while True:
             parts = data_pull.recv_multipart(copy=False)
@@ -151,6 +168,7 @@ class Eiger(Detector):
             elif header['htype'] == 'dseries_end-1.0':
                 end_header = {'htype': 'series_end',
                               'msg_number': next(self._msg_number)}
+                logger.info("series end")
                 queue.put([end_header,])
                 
                 
@@ -166,6 +184,7 @@ class Lambda(Detector):
             port = 9010 + i
             sock.connect(f'tcp://{host}:{port}')
             data_pull.append(sock)
+            logger.info("connected to tcp://%s:%d", host, port)
         
         last_meta_header = None
         
@@ -187,7 +206,7 @@ class Lambda(Detector):
                 # add x, z, rotation and full shape to image header
                 header = headers[0]
                 header.update(last_meta_header)
-                
+                logger.debug("received image %s", header)
                 merged = [header,]
                 for m in range(4):
                     merged.append(parts[m][1])
@@ -203,12 +222,14 @@ class Lambda(Detector):
                     for key in ['x', 'y', 'rotation']:
                         meta[key].append(int(info[key]))
                     meta['full_shape'] = info['full_shape']
-                
+
+                logger.info("received header with headers %s and meta: %s", headers[0], meta)
                 last_meta_header = meta
                 queue.put([headers[0], meta])
                 
             elif headers[0]['htype'] == "series_end":
                 queue.put([headers[0],])
+                logger.info("series end %s", headers[0])
 
 
 def decode_multi_dim_array(tag):
@@ -245,6 +266,7 @@ class DectrisStream2(Detector):
         data_pull = self.context.socket(zmq.PULL)
         host = config['dcu_host_purple']
         data_pull.connect(f'tcp://{host}:31001')
+        logger.info("connected to tcp://%s:31001", host)
 
         while True:
             msg = data_pull.recv(copy=False)
@@ -264,6 +286,7 @@ class DectrisStream2(Detector):
 
                 meta_info = {key: msg[key] for key in keys if key in msg}
                 meta_info.update(msg['threshold_energy'])
+                logger.info("received start, meta_header %s and meta_info %s", meta_header, meta_info)
                 queue.put([meta_header,meta_info])
 
             elif msg['type'] == 'image':
@@ -287,6 +310,7 @@ class DectrisStream2(Detector):
                             data_header['chunks'] = (1, *shape)
 
                         out.append(data_header)
+                        logger.debug("processed image with header %s", data_header)
 
                     out.append(blob)
 
@@ -296,5 +320,6 @@ class DectrisStream2(Detector):
                 end_header = {'htype': 'series_end',
                               'msg_number': next(self._msg_number)}
                 queue.put([end_header, ])
+                logger.info("series end %s", end_header)
                     
            

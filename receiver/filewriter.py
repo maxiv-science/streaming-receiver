@@ -1,12 +1,15 @@
+import logging
 import os
 import json
 import h5py
 import bitshuffle
 import numpy as np
+import logging
 from threading import Thread
 from datetime import datetime
 from .queuey import Queuey
 
+logger = logging.getLogger(__name__)
 def get_time_str():
     return datetime.strftime(datetime.now(), '%Y-%m-%d %H:%M:%S.%f')
 
@@ -16,6 +19,7 @@ class FileWriter():
         self._thread = None
         self._dset_name = dset_name
         self._number_dset_name = None
+        logger.info("initialised FileWriter for dset %s", self._dset_name)
         
     def run(self, worker_queue: Queuey, writer_queue: Queuey):
         self._thread = Thread(target=self._main, args=(worker_queue, writer_queue))
@@ -39,6 +43,7 @@ class FileWriter():
             if filename:
                 if os.path.isfile(filename):
                     self._fh = h5py.File(filename, 'a')
+                    logger.info("opened existing file %s to append", filename)
                 else:
                     self._fh = h5py.File(filename, 'w')
                     end = self._dset_name.rfind('/')
@@ -50,19 +55,19 @@ class FileWriter():
                             group.create_dataset(key, data=value)
                     group.create_dataset("sequence_number", (0,), maxshape=(None, ), dtype=np.uint32)
                     self._number_dset_name = f"{group_name}/sequence_number"
+                    logger.info("created new file %s with dataset %s", filename, group_name)
             else:
                 self._fh = None
+                logger.info("no file opened (live view only)")
             status = {'htype': 'status',
                       'state': 'running'}
-            ts = get_time_str()
-            print(f'{ts}: send status running msg')
+            logger.info('%s: send status running msg')
             worker_queue.put([status,])
         except Exception as e:
             status = {'htype': 'status',
                       'state': 'error',
                       'error': str(e)}
-            ts = get_time_str()
-            print(f'{ts}: send status error msg')
+            logger.error('%s: send status error msg')
             worker_queue.put([status,])
             
     def _handle_end(self, worker_queue):
@@ -70,8 +75,7 @@ class FileWriter():
             self._fh.close()
         status = {'htype': 'status',
                   'state': 'idle'}
-        ts = get_time_str()
-        print(f'{ts}: send status idle msg')
+        logger.info('send status idle msg')
         worker_queue.put([status,])
     
     def _handle_frame(self, header, parts):
@@ -95,6 +99,7 @@ class FileWriter():
                                                chunks=chunks,
                                                compression=compression,
                                                compression_opts=compression_opts)
+                logger.info("created dataset %s", self._dset_name)
             if "frame" in header and self._number_dset_name:
                 ndset = self._fh.get(self._number_dset_name)
                 if not ndset:
@@ -108,3 +113,4 @@ class FileWriter():
             for i in range(1, len(parts)):
                 offsets[1] = i - 1
                 dset.id.write_direct_chunk(offsets, parts[i])
+            logger.debug("wrote frame at offsets %s", offsets)
