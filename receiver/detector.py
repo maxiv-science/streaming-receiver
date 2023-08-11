@@ -105,7 +105,8 @@ class Detector():
                 queue.put(output)
             else:
                 rest = [json.loads(p.bytes) for p in parts[1:]]
-                queue.put([header, *rest]) 
+                logger.info("got header for series %s with rest %s", header, rest)
+                queue.put([header, *rest])
 
 class Eiger(Detector):
     def __init__(self, pipeline=None):
