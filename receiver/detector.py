@@ -115,6 +115,7 @@ class Eiger(Detector):
         self._msg_number = count(0)
         logger.info("initialised Eiger")
         self.rotate = 0
+        self.start_info = {}
     
     def handle_header(self, header, parts, queue):
         info = json.loads(parts[1].bytes)
@@ -134,9 +135,11 @@ class Eiger(Detector):
                 'nimages',
                 'ntrigger',
                 'trigger_mode']
-                
+        
+        self.start_info = {}
         if header['header_detail'] != 'none':
             meta_info = {key: info[key] for key in keys}
+            self.start_info['exposure_time'] = meta_info['count_time']
         else:
             meta_info = {}
         logger.info("processed meta_header: %s and meta_info: %s", meta_header, meta_info)
@@ -151,6 +154,8 @@ class Eiger(Detector):
                         'shape': info['shape'][::-1],
                         'type': info['type'],
                         'compression': compression}
+        # update data header with constant info from the start message
+        data_header.update(self.start_info)
         logger.debug("handled frame with header %s", data_header)
         
         if self.rotate:
