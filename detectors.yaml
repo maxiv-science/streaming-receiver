@@ -56,6 +56,7 @@ danmax-pilatus4:
   
 dummy-eiger:
   class: Eiger
+  nworkers: 8
   dcu_host_purple: localhost
   api_port: 8001
   data_port: 26001

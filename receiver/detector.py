@@ -5,11 +5,12 @@ import cbor2
 import logging
 from itertools import count
 from threading import Thread
-from bitshuffle import compress_lz4
+from bitshuffle import compress_lz4, decompress_lz4
 from .queuey import Queuey
 from .processing import convert_tot, decompress_cbf, unpack_mono12p
 
 logger = logging.getLogger(__name__)
+
 class PilatusPipeline():
     def __init__(self, config):
         self.compress = config.get('compress', True)
@@ -113,10 +114,12 @@ class Eiger(Detector):
         super().__init__(pipeline=pipeline)
         self._msg_number = count(0)
         logger.info("initialised Eiger")
+        self.rotate = 0
     
     def handle_header(self, header, parts, queue):
         info = json.loads(parts[1].bytes)
         appendix = json.loads(parts[8].bytes)
+        self.rotate = appendix.get('rotate', 0)
         meta_header = {'htype': 'header',
                         'msg_number': next(self._msg_number),
                         'filename': appendix['filename']}
@@ -149,7 +152,19 @@ class Eiger(Detector):
                         'type': info['type'],
                         'compression': compression}
         logger.debug("handled frame with header %s", data_header)
-        queue.put([data_header, parts[2]])
+        
+        if self.rotate:
+            img = decompress_lz4(parts[2].buffer, data_header['shape'], data_header['type'])
+            img = np.rot90(img, self.rotate)
+            img = np.ascontiguousarray(img)
+            blob = compress_lz4(img)
+            # flip shape for odd rotations
+            if (self.rotate % 2) == 1:
+                data_header['shape'] = data_header['shape'][::-1]
+        else:
+            blob = parts[2]
+            
+        queue.put([data_header, blob])
         
     def worker(self, config, queue: Queuey):
         data_pull = self.context.socket(zmq.PULL)
