@@ -89,7 +89,7 @@ async def main(config):
     
     app.state.collector = collector
     port = config.get('api_port', 5000)
-    config = uvicorn.Config(app, host='0.0.0.0', port=port, log_level=os.getenv("LOG_LEVEL", 'warning'))
+    config = uvicorn.Config(app, host='0.0.0.0', port=port, log_level=os.getenv("LOG_LEVEL", 'warning').lower())
     server = uvicorn.Server(config)
     await server.serve()
     
