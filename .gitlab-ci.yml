@@ -1,12 +1,4 @@
-#stages:
-#  - container
-
 include:
   - project: 'kits-maxiv/cfg-maxiv-gitlabci'
     file:
-      - '/.python-ci.yml'
       - '/Docker.gitlab-ci.yml'
-
-variables:
-  RPM_ENABLED: "false"
-  PYPI_ENABLED: "false"
