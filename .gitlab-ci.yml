@@ -1,12 +1,12 @@
-stages:
-  - container
-  
+#stages:
+#  - container
+
 include:
   - project: 'kits-maxiv/cfg-maxiv-gitlabci'
     file: '/.python-ci.yml'
-  - project: 'scisw/gitlabci'
-    file:
-      - '/docker.yml'
+#  - project: 'scisw/gitlabci'
+#    file:
+#      - '/docker.yml'
 
 variables:
   RPM_ENABLED: "false"
