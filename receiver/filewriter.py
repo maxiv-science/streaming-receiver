@@ -1,6 +1,8 @@
 import logging
 import os
 import json
+import time
+
 import h5py
 import bitshuffle
 import numpy as np
@@ -33,19 +35,24 @@ class FileWriter():
             if header['htype'] == 'header':
                 self._handle_start(header, parts, worker_queue)
             elif header['htype'] == 'series_end':
-                self._handle_end(worker_queue)
+                self._handle_end(header, worker_queue)
             else:
                 self._handle_frame(header, parts)
                     
     def _handle_start(self, header, parts, worker_queue):
+        msg_number = header.get("msg_number", -1)
         try:
+            time_start = time.perf_counter()
             filename = header['filename']
             if filename:
                 if os.path.isfile(filename):
+                    time_isfile = time.perf_counter() - time_start
                     self._fh = h5py.File(filename, 'a')
-                    logger.info("opened existing file %s to append", filename)
+                    time_opened = time.perf_counter() - time_start
+                    logger.info("h%d: opened existing file %s to append, isfile took %lf, with open took %lf", msg_number, filename, time_isfile, time_opened)
                 else:
                     self._fh = h5py.File(filename, 'w')
+                    time_opened = time.perf_counter() - time_start
                     end = self._dset_name.rfind('/')
                     group_name = self._dset_name[:end]
                     group = self._fh.create_group(group_name)
@@ -55,27 +62,29 @@ class FileWriter():
                             group.create_dataset(key, data=value)
                     group.create_dataset("sequence_number", (0,), maxshape=(None, ), dtype=np.uint32)
                     self._number_dset_name = f"{group_name}/sequence_number"
-                    logger.info("created new file %s with dataset %s", filename, group_name)
+                    time_dscreated = time.perf_counter() - time_start
+                    logger.info("h%d: created new file %s with dataset %s, open took %lf, with created took %lf", msg_number, filename, group_name, time_opened, time_dscreated)
             else:
                 self._fh = None
                 logger.info("no file opened (live view only)")
             status = {'htype': 'status',
                       'state': 'running'}
-            logger.info('send status running msg')
+            logger.info('h%d: send status running msg', msg_number)
             worker_queue.put([status,])
         except Exception as e:
             status = {'htype': 'status',
                       'state': 'error',
                       'error': str(e)}
-            logger.error('send status error msg')
+            logger.error('h%d: send status error msg', msg_number)
             worker_queue.put([status,])
             
-    def _handle_end(self, worker_queue):
+    def _handle_end(self, header, worker_queue):
+        msg_number = header.get("msg_number", -1)
         if self._fh:
             self._fh.close()
         status = {'htype': 'status',
                   'state': 'idle'}
-        logger.info('send status idle msg')
+        logger.info('h%d: send status idle msg', msg_number)
         worker_queue.put([status,])
     
     def _handle_frame(self, header, parts):

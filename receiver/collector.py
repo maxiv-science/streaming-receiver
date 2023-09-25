@@ -1,6 +1,9 @@
 import time
 import asyncio
+import logging
 from .queuey import Queuey
+
+logger = logging.getLogger(__name__)
 
 async def ordered_recv(queue: Queuey):
     cache = {}
@@ -76,14 +79,15 @@ class Collector():
             old = self.received_frames
             await asyncio.sleep(1.0)
             end = time.time()
-            #print((self.received_frames - old) / (end - start))
-        
+            if (self.received_frames - old) > 0:
+                logger.info("received %d frames in the last %f seconds", (self.received_frames - old), (end - start))
+
     async def run(self, worker_queue, writer_queue, forwarders):
         asyncio.create_task(self._update_metrics())
         
         async for parts in ordered_recv(worker_queue):
-            #print('collector', parts[0])
             header = parts[0]
+            logger.debug("process %s", parts[0])
             
             if header['htype'] == 'status':
                 header.pop('htype')
