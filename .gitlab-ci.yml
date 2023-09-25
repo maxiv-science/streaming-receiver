@@ -1,10 +1,9 @@
-stages:
-  - build
-  - upload
-  - container
-
 include:
+  - project: 'kits-maxiv/cfg-maxiv-gitlabci'
+    file: '/.python-ci.yml'
   - project: 'scisw/gitlabci'
-    file: 
-      - '/conda.yml'
+    file:
       - '/docker.yml'
+
+variables:
+  RPM_ENABLED: "false"
