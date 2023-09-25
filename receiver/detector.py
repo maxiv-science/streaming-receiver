@@ -142,6 +142,7 @@ class Eiger(Detector):
             self.start_info['exposure_time'] = meta_info['count_time']
         else:
             meta_info = {}
+        meta_info['rotate'] = self.rotate
         logger.info("processed meta_header: %s and meta_info: %s", meta_header, meta_info)
         queue.put([meta_header, meta_info])
         
