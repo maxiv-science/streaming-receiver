@@ -44,7 +44,10 @@ class FileWriter():
         try:
             time_start = time.perf_counter()
             filename = header['filename']
-            if filename:
+            saveraw = True
+            if len(parts) > 1:
+                saveraw = parts[1].get("save_raw", True)
+            if filename and saveraw:
                 if os.path.isfile(filename):
                     time_isfile = time.perf_counter() - time_start
                     self._fh = h5py.File(filename, 'a')
