@@ -88,8 +88,15 @@ async def main(config):
     asyncio.create_task(collector.run(worker_queue, writer_queue, [forwarder,]))
     
     app.state.collector = collector
+
+    api_loglevel = os.getenv("LOG_LEVEL", "INFO").lower()
+    if api_loglevel == "info":
+        api_loglevel = "warning"
+    if api_loglevel == "debug":
+        api_loglevel = "info"
+
     port = config.get('api_port', 5000)
-    config = uvicorn.Config(app, host='0.0.0.0', port=port, log_level=os.getenv("LOG_LEVEL", 'warning').lower())
+    config = uvicorn.Config(app, host='0.0.0.0', port=port, log_level=api_loglevel)
     server = uvicorn.Server(config)
     await server.serve()
     
