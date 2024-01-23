@@ -8,6 +8,8 @@ from threading import Thread
 from bitshuffle import compress_lz4, decompress_lz4
 from .queuey import Queuey
 from .processing import convert_tot, decompress_cbf, unpack_mono12p
+from dectris.compression import decompress
+
 
 logger = logging.getLogger(__name__)
 
@@ -344,4 +346,96 @@ class DectrisStream2(Detector):
                 queue.put([end_header, ])
                 logger.info("series end %s", end_header)
                     
-           
+
+
+
+def og_decode_multi_dim_array(tag, column_major):
+    dimensions, contents = tag.value
+    if isinstance(contents, list):
+        array = np.empty((len(contents),), dtype=object)
+        array[:] = contents
+    elif isinstance(contents, (np.ndarray, np.generic)):
+        array = contents
+    else:
+        raise cbor2.CBORDecodeValueError("expected array or typed array")
+    return array.reshape(dimensions, order="F" if column_major else "C")
+
+
+def og_decode_typed_array(tag, dtype):
+    if not isinstance(tag.value, bytes):
+        raise cbor2.CBORDecodeValueError("expected byte string in typed array")
+    return np.frombuffer(tag.value, dtype=dtype)
+
+
+def og_decode_dectris_compression(tag):
+    algorithm, elem_size, encoded = tag.value
+    return decompress(encoded, algorithm, elem_size=elem_size)
+
+
+og_tag_decoders = {
+    40: lambda tag: og_decode_multi_dim_array(tag, column_major=False),
+    64: lambda tag: og_decode_typed_array(tag, dtype="u1"),
+    65: lambda tag: og_decode_typed_array(tag, dtype=">u2"),
+    66: lambda tag: og_decode_typed_array(tag, dtype=">u4"),
+    67: lambda tag: og_decode_typed_array(tag, dtype=">u8"),
+    68: lambda tag: og_decode_typed_array(tag, dtype="u1"),
+    69: lambda tag: og_decode_typed_array(tag, dtype="<u2"),
+    70: lambda tag: og_decode_typed_array(tag, dtype="<u4"),
+    71: lambda tag: og_decode_typed_array(tag, dtype="<u8"),
+    72: lambda tag: og_decode_typed_array(tag, dtype="i1"),
+    73: lambda tag: og_decode_typed_array(tag, dtype=">i2"),
+    74: lambda tag: og_decode_typed_array(tag, dtype=">i4"),
+    75: lambda tag: og_decode_typed_array(tag, dtype=">i8"),
+    77: lambda tag: og_decode_typed_array(tag, dtype="<i2"),
+    78: lambda tag: og_decode_typed_array(tag, dtype="<i4"),
+    79: lambda tag: og_decode_typed_array(tag, dtype="<i8"),
+    80: lambda tag: og_decode_typed_array(tag, dtype=">f2"),
+    81: lambda tag: og_decode_typed_array(tag, dtype=">f4"),
+    82: lambda tag: og_decode_typed_array(tag, dtype=">f8"),
+    83: lambda tag: og_decode_typed_array(tag, dtype=">f16"),
+    84: lambda tag: og_decode_typed_array(tag, dtype="<f2"),
+    85: lambda tag: og_decode_typed_array(tag, dtype="<f4"),
+    86: lambda tag: og_decode_typed_array(tag, dtype="<f8"),
+    87: lambda tag: og_decode_typed_array(tag, dtype="<f16"),
+    1040: lambda tag: og_decode_multi_dim_array(tag, column_major=True),
+    56500: lambda tag: og_decode_dectris_compression(tag),
+}
+
+def og_tag_hook(decoder, tag):
+    tag_decoder = og_tag_decoders.get(tag.tag)
+    return tag_decoder(tag) if tag_decoder else tag
+
+class Jungfrau(Detector):
+    def __init__(self, pipeline=None):
+        super().__init__(pipeline=pipeline)
+
+    def worker(self, config, queue: Queuey):
+        data_pull = self.context.socket(zmq.SUB)
+        host = config['dcu_host_purple']
+        port = config.get('dcu_port_purple', 2345)
+        data_pull.connect(f'tcp://{host}:{port}')
+        data_pull.setsockopt(zmq.SUBSCRIBE, b"")
+        logger.info("connected to tcp://%s:2345", host)
+
+        self._msg_number = count(0)
+        meta_header = {'htype': 'header',
+                       'msg_number': next(self._msg_number),
+                       'filename': ""}
+        queue.put([meta_header])
+        while True:
+            message = data_pull.recv()
+            message = cbor2.loads(message, tag_hook=og_tag_hook)
+            print(message)
+            data_header = {'htype': 'image',
+                           'msg_number': next(self._msg_number),
+                           'frame': message['image_id'],
+                           'shape': message["data"]['default'].shape,
+                           'type': "int16",
+                           "spots": message["spots"],
+                           'compression': "none"}
+            # update data header with constant info from the start message
+            logger.debug("handled frame with header %s", data_header)
+
+            blob = message["data"]['default'].tobytes()
+
+            queue.put([data_header, blob])
