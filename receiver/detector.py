@@ -415,7 +415,7 @@ class Jungfrau(Detector):
         port = config.get('dcu_port_purple', 2345)
         data_pull.connect(f'tcp://{host}:{port}')
         data_pull.setsockopt(zmq.SUBSCRIBE, b"")
-        logger.info("connected to tcp://%s:2345", host)
+        logger.info("connected to tcp://%s:%s", host, port)
 
         self._msg_number = count(0)
         meta_header = {'htype': 'header',
@@ -425,7 +425,6 @@ class Jungfrau(Detector):
         while True:
             message = data_pull.recv()
             message = cbor2.loads(message, tag_hook=og_tag_hook)
-            print(message)
             data_header = {'htype': 'image',
                            'msg_number': next(self._msg_number),
                            'frame': message['image_id'],
