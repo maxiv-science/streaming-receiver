@@ -460,30 +460,34 @@ class PsiEiger(Detector):
         while True:
             parts = data_pull.recv_multipart(copy=False)
             parts2 = data_pull2.recv_multipart(copy=False)
-            logger.debug("data received %s", parts[0])
             header = json.loads(parts[0].bytes)
             header2 = json.loads(parts2[0].bytes)
-            logger.debug("got header %s", header)
+            logger.debug("got header1 %s, header2 %s", header, header2)
+            logger.debug("is in_scan %s", in_scan)
             if header["size"] == 0:
                 end_header = {'htype': 'series_end',
                               'msg_number': next(self._msg_number)}
                 logger.info("series end")
                 queue.put([end_header, ])
                 in_scan = False
+                logger.debug("in_scan set to %s", in_scan)
             else:
                 if in_scan is False:
                     meta_header = {'htype': 'header',
                                    'msg_number': next(self._msg_number),
                                    'filename': header["fname"] if header["fname"].startswith("/data/") else None}
+                    if "data" in header:
+                        del header["data"]
                     queue.put([meta_header, header])
                     in_scan = True
+                    logger.debug("in_scan set to %s after new series", in_scan)
 
                 dtypes = {32:"uint32", 16:"uint16", 8:"uint8"}
 
                 data_header = {'htype': 'image',
                                'msg_number': next(self._msg_number),
                                'frame': header['frameIndex'],
-                               'shape': [514, 514], #header['shape'][::-1],
+                               'shape': (514, 514), #header['shape'][::-1],
                                'type': dtypes[header['bitmode']],
                                'compression': "none"}
 
