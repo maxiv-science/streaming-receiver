@@ -489,6 +489,9 @@ class PsiEiger(Detector):
                                    'filename': header["fname"] if header["fname"].startswith("/data/") else None}
                     if "data" in header:
                         del header["data"]
+                    for key in header:
+                        if type(header[key]) is dict:
+                            header[key] = str(header[key])
                     queue.put([meta_header, header])
                     in_scan = True
                     logger.debug("in_scan set to %s after new series", in_scan)
