@@ -438,3 +438,72 @@ class Jungfrau(Detector):
             blob = message["data"]['default'].tobytes()
 
             queue.put([data_header, blob])
+
+
+class PsiEiger(Detector):
+    def __init__(self, pipeline=None):
+        super().__init__(pipeline=pipeline)
+        self._msg_number = count(0)
+        logger.info("initialised PsiEiger")
+        self.start_info = {}
+
+    def worker(self, config, queue: Queuey):
+        data_pull = self.context.socket(zmq.SUB)
+        data_pull2 = self.context.socket(zmq.SUB)
+        host = config['dcu_host_purple']
+        data_pull.connect(f'tcp://{host}:30001')
+        data_pull2.connect(f'tcp://{host}:30002')
+        logger.info("connected to tcp://%s:30001 and 2", host)
+        data_pull.setsockopt(zmq.SUBSCRIBE, b"")
+        data_pull2.setsockopt(zmq.SUBSCRIBE, b"")
+        in_scan = False
+        while True:
+            parts = data_pull.recv_multipart(copy=False)
+            parts2 = data_pull2.recv_multipart(copy=False)
+            logger.debug("data received %s", parts[0])
+            header = json.loads(parts[0].bytes)
+            header2 = json.loads(parts2[0].bytes)
+            logger.debug("got header %s", header)
+            if header["size"] == 0:
+                end_header = {'htype': 'series_end',
+                              'msg_number': next(self._msg_number)}
+                logger.info("series end")
+                queue.put([end_header, ])
+                in_scan = False
+            else:
+                if in_scan is False:
+                    meta_header = {'htype': 'header',
+                                   'msg_number': next(self._msg_number),
+                                   'filename': header["fname"] if header["fname"].startswith("/data/") else None}
+                    queue.put([meta_header, header])
+                    in_scan = True
+
+                dtypes = {32:"uint32", 16:"uint16", 8:"uint8"}
+
+                data_header = {'htype': 'image',
+                               'msg_number': next(self._msg_number),
+                               'frame': header['frameIndex'],
+                               'shape': [514, 514], #header['shape'][::-1],
+                               'type': dtypes[header['bitmode']],
+                               'compression': "none"}
+
+                img = np.frombuffer(parts[1].bytes, data_header["type"])
+                img = img.reshape((256, 512))
+                upper = np.flipud(img)
+
+                frame = np.zeros((514,514), dtype=data_header["type"])
+
+                frame[0:256,0:256] = upper[0:256,0:256]
+                frame[0:256,258:514] = upper[0:256,256:]
+
+                img = np.frombuffer(parts2[1].bytes, data_header["type"])
+                lower = img.reshape((256, 512))
+
+                frame[258:, 0:256] = lower[0:256, 0:256]
+                frame[258:, 258:514] = lower[0:256, 256:]
+
+                fb = np.ascontiguousarray(frame)
+
+                blob = fb.tobytes()
+
+                queue.put([data_header, blob])
