@@ -464,6 +464,17 @@ class PsiEiger(Detector):
             header2 = json.loads(parts2[0].bytes)
             logger.debug("got header1 %s, header2 %s", header, header2)
             logger.debug("is in_scan %s", in_scan)
+
+            while header["frameIndex"] != header2["frameIndex"]:
+                if header["frameIndex"] > header2["frameIndex"]:
+                    logger.info("catching up h2, hI %d, h2I %d", header["frameIndex"], header2["frameIndex"])
+                    parts2 = data_pull2.recv_multipart(copy=False)
+                    header2 = json.loads(parts2[0].bytes)
+                else:
+                    logger.info("catching up h1, hI %d, h2I %d", header["frameIndex"], header2["frameIndex"])
+                    parts = data_pull.recv_multipart(copy=False)
+                    header = json.loads(parts[0].bytes)
+
             if header["size"] == 0:
                 end_header = {'htype': 'series_end',
                               'msg_number': next(self._msg_number)}
@@ -491,6 +502,13 @@ class PsiEiger(Detector):
                                'type': dtypes[header['bitmode']],
                                'compression': "none"}
 
+                if len(parts) < 2 or len(parts2) < 2:
+                    end_header = {'htype': 'series_end',
+                                  'msg_number': next(self._msg_number)}
+                    logger.info("series end because no data available")
+                    queue.put([end_header, ])
+                    in_scan = False
+                    continue
                 img = np.frombuffer(parts[1].bytes, data_header["type"])
                 img = img.reshape((256, 512))
                 upper = np.flipud(img)
