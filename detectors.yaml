@@ -62,4 +62,9 @@ dummy-eiger:
   data_port: 26001
   dset_name: /entry/instrument/eiger/data
   
-  
+psi-eiger:
+  class: PsiEiger
+  dcu_host_purple: 172.16.15.145
+  api_port: 8001
+  data_port: 5556
+  dset_name: /entry/instrument/eiger/data

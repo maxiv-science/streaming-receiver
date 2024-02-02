@@ -446,89 +446,117 @@ class PsiEiger(Detector):
         self._msg_number = count(0)
         logger.info("initialised PsiEiger")
         self.start_info = {}
+        self.ports = [30001, 30002]
+        self.cache = [{} for _ in self.ports]
 
     def worker(self, config, queue: Queuey):
-        data_pull = self.context.socket(zmq.SUB)
-        data_pull2 = self.context.socket(zmq.SUB)
+        data_pull = [self.context.socket(zmq.SUB) for _ in self.ports]
         host = config['dcu_host_purple']
-        data_pull.connect(f'tcp://{host}:30001')
-        data_pull2.connect(f'tcp://{host}:30002')
-        logger.info("connected to tcp://%s:30001 and 2", host)
-        data_pull.setsockopt(zmq.SUBSCRIBE, b"")
-        data_pull2.setsockopt(zmq.SUBSCRIBE, b"")
+        poller = zmq.Poller()
+        for sock, port in zip(data_pull, self.ports):
+            sock.connect(f'tcp://{host}:{port}')
+            logger.info("connected to tcp://%s:%d", host, port)
+            sock.setsockopt(zmq.SUBSCRIBE, b"")
+            poller.register(sock, zmq.POLLIN)
+
+        last = [0, 0]
+        prelast = {}
+        hist = [{}, {}]
+
         in_scan = False
+
         while True:
-            parts = data_pull.recv_multipart(copy=False)
-            parts2 = data_pull2.recv_multipart(copy=False)
-            header = json.loads(parts[0].bytes)
-            header2 = json.loads(parts2[0].bytes)
-            logger.debug("got header1 %s, header2 %s", header, header2)
-            logger.debug("is in_scan %s", in_scan)
-
-            while header["frameIndex"] != header2["frameIndex"]:
-                if header["frameIndex"] > header2["frameIndex"]:
-                    logger.info("catching up h2, hI %d, h2I %d", header["frameIndex"], header2["frameIndex"])
-                    parts2 = data_pull2.recv_multipart(copy=False)
-                    header2 = json.loads(parts2[0].bytes)
-                else:
-                    logger.info("catching up h1, hI %d, h2I %d", header["frameIndex"], header2["frameIndex"])
-                    parts = data_pull.recv_multipart(copy=False)
+            socks = dict(poller.poll())
+            for sock, cache, i in zip(data_pull, self.cache,[0,1]):
+                if sock in socks and socks[sock] == zmq.POLLIN:
+                    parts = sock.recv_multipart(copy=False)
                     header = json.loads(parts[0].bytes)
+                    if header["frameNumber"] == 1:
+                        hist = [{}, {}]
+                    if header["frameNumber"] != 0:
+                        hist[i][header["frameNumber"] * 10] = parts
+                        prelast[i] = header["frameNumber"] * 10
+                    else:
+                        hist[i][last[i] + 1] = parts
 
-            if header["size"] == 0:
-                end_header = {'htype': 'series_end',
-                              'msg_number': next(self._msg_number)}
-                logger.info("series end")
-                queue.put([end_header, ])
-                in_scan = False
-                logger.debug("in_scan set to %s", in_scan)
-            else:
-                if in_scan is False:
-                    meta_header = {'htype': 'header',
-                                   'msg_number': next(self._msg_number),
-                                   'filename': header["fname"] if header["fname"].startswith("/data/") else None}
-                    if "data" in header:
-                        del header["data"]
-                    for key in header:
-                        if type(header[key]) is dict:
-                            header[key] = str(header[key])
-                    queue.put([meta_header, header])
-                    in_scan = True
-                    logger.debug("in_scan set to %s after new series", in_scan)
+            common = set(hist[0].keys()).intersection(set(hist[1].keys()))
+            print("common", common)
+            for c in common:
+                d = []
+                for i in range(2):
+                    d.append(hist[i].pop(c))
 
-                dtypes = {32:"uint32", 16:"uint16", 8:"uint8"}
+                print("sendout", d)
 
-                data_header = {'htype': 'image',
-                               'msg_number': next(self._msg_number),
-                               'frame': header['frameIndex'],
-                               'shape': (514, 514), #header['shape'][::-1],
-                               'type': dtypes[header['bitmode']],
-                               'compression': "none"}
-
-                if len(parts) < 2 or len(parts2) < 2:
+                header = json.loads(d[0][0].bytes)
+                if header["size"] == 0:
                     end_header = {'htype': 'series_end',
                                   'msg_number': next(self._msg_number)}
-                    logger.info("series end because no data available")
+                    logger.info("series end")
                     queue.put([end_header, ])
                     in_scan = False
-                    continue
-                img = np.frombuffer(parts[1].bytes, data_header["type"])
-                img = img.reshape((256, 512))
-                upper = np.flipud(img)
+                    logger.debug("started, in_scan set to %s", in_scan)
+                else:
+                    if in_scan is False:
+                        meta_header = {'htype': 'header',
+                                       'msg_number': next(self._msg_number),
+                                       'filename': header["fname"] if header["fname"].startswith("/data/") else None}
+                        if "data" in header:
+                            del header["data"]
+                        for key in header:
+                            if type(header[key]) is dict:
+                                header[key] = str(header[key])
+                        queue.put([meta_header, header])
+                        in_scan = True
+                        logger.debug("in_scan set to %s after new series", in_scan)
 
-                frame = np.zeros((514,514), dtype=data_header["type"])
+                    dtypes = {32:"uint32", 16:"uint16", 8:"uint8"}
 
-                frame[0:256,0:256] = upper[0:256,0:256]
-                frame[0:256,258:514] = upper[0:256,256:]
+                    data_header = {'htype': 'image',
+                                   'msg_number': next(self._msg_number),
+                                   'frame': header['frameIndex'],
+                                   'shape': (514, 514), #header['shape'][::-1],
+                                   'type': dtypes[header['bitmode']],
+                                   'compression': "none"}
 
-                img = np.frombuffer(parts2[1].bytes, data_header["type"])
-                lower = img.reshape((256, 512))
+                    if len(d[0]) < 2 or len(d[1]) < 2:
+                        end_header = {'htype': 'series_end',
+                                      'msg_number': next(self._msg_number)}
+                        logger.info("series end because no data available")
+                        queue.put([end_header, ])
+                        in_scan = False
+                        continue
+                    img = np.frombuffer(d[0][1].bytes, data_header["type"])
+                    img = img.reshape((256, 512))
+                    upper = np.flipud(img)
 
-                frame[258:, 0:256] = lower[0:256, 0:256]
-                frame[258:, 258:514] = lower[0:256, 256:]
+                    frame = np.zeros((514,514), dtype=data_header["type"])
 
-                fb = np.ascontiguousarray(frame)
+                    frame[0:256,0:256] = upper[0:256,0:256]
+                    frame[0:256,258:514] = upper[0:256,256:]
 
-                blob = fb.tobytes()
+                    img = np.frombuffer(d[1][1].bytes, data_header["type"])
+                    lower = img.reshape((256, 512))
 
-                queue.put([data_header, blob])
+                    frame[258:, 0:256] = lower[0:256, 0:256]
+                    frame[258:, 258:514] = lower[0:256, 256:]
+
+                    fb = np.ascontiguousarray(frame)
+
+                    blob = fb.tobytes()
+
+                    queue.put([data_header, blob])
+
+            # clear single-modules responses
+            for i in range(2):
+                for k in list(hist[i].keys()):
+                    print("oposite keys", list(hist[(i - 1) % 2].keys()))
+                    if len(hist[(i - 1) % 2].keys()) > 0:
+                        if k < min(hist[(i - 1) % 2].keys()):
+                            print(k, " is smaller than any remaining in ", hist[(i - 1) % 2].keys())
+                            print("Drop frame", k)
+                            hist[i].pop(k)
+
+            for k, v in prelast.items():
+                last[k] = v
+            prelast = {}
