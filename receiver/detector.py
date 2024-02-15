@@ -551,7 +551,8 @@ class PsiEiger(Detector):
                     frame[258:, 0:256] = lower[0:256, 0:256]
                     frame[258:, 258:514] = lower[0:256, 256:]
 
-                    flipped_frame = np.fliplr(frame)
+
+                    flipped_frame = np.rot90(frame,1)
                     fb = np.ascontiguousarray(flipped_frame)
 
                     blob = fb.tobytes()
