@@ -79,6 +79,7 @@ class Detector():
         self.context = zmq.Context(2)
         self.threads = []
         self.pipeline = pipeline
+        self.start_info = {}
         logger.info("initialised detector with pipeline %s", self.pipeline)
 
     def run(self, config, queue):
@@ -101,11 +102,20 @@ class Detector():
             header = json.loads(parts[0].bytes)
             logger.debug("received frame with header %s", header)
             if header['htype'] == 'image':
+                header.update(self.start_info)
                 if self.pipeline:
                     output = self.pipeline(header, parts)
                 else:
                     output = [header, *parts[1:]]
                 queue.put(output)
+            elif header['htype'] == 'header':
+                rest = [json.loads(p.bytes) for p in parts[1:]]
+                self.start_info = {}
+                if len(rest) > 0:
+                    if "exptime" in rest[0]:
+                        self.start_info['exposure_time'] = rest[0]['exptime']
+                logger.info("got header for series %s with rest %s", header, rest)
+                queue.put([header, *rest])
             else:
                 rest = [json.loads(p.bytes) for p in parts[1:]]
                 logger.info("got header for series %s with rest %s", header, rest)
