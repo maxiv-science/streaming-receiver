@@ -1,3 +1,5 @@
+from copy import copy
+
 import zmq
 import json
 import numpy as np
@@ -83,12 +85,30 @@ class Detector():
         logger.info("initialised detector with pipeline %s", self.pipeline)
 
     def run(self, config, queue):
-        nworkers = config.get('nworkers', 1)
-        for i in range(nworkers):
-            t = Thread(target=self.worker, args=(config, queue))
-            t.start()
-            self.threads.append(t)
-        logger.info("created %d worker threads", nworkers)
+        ips = config['dcu_host_purple']
+        if isinstance(ips, list):
+            # connect to a set of endpoints, make sure that they have unique msg_numbers
+            ports = config.get('dcu_port_purple', 9999)
+            if isinstance(ports, list):
+                if len(ips) != len(ports):
+                    raise RuntimeError(f"config must have same number of IPs than ports: %s and %s", ips, ports)
+            else:
+                ports = [ports]*len(ips)
+            for ip, port in zip(ips, ports):
+                wconfig = copy(config)
+                wconfig["dcu_host_purple"] = ip
+                wconfig['dcu_port_purple'] = port
+                t = Thread(target=self.worker, args=(wconfig, queue))
+                t.start()
+                self.threads.append(t)
+                logger.info("created worker thread with config", wconfig)
+        else:
+            nworkers = config.get('nworkers', 1)
+            for i in range(nworkers):
+                t = Thread(target=self.worker, args=(config, queue))
+                t.start()
+                self.threads.append(t)
+            logger.info("created %d worker threads", nworkers)
 
     def worker(self, config, queue: Queuey):
         data_pull = self.context.socket(zmq.PULL)
