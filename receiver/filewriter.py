@@ -38,7 +38,15 @@ class FileWriter():
                 self._handle_end(header, worker_queue)
             else:
                 self._handle_frame(header, parts)
-                    
+
+    def save_dict_to_h5(self, data, group):
+        for key, value in data.items():
+            if isinstance(value, dict):
+                ng = group.create_group(key)
+                self.save_dict_to_h5(value, ng)
+            else:
+                group.create_dataset(key, data=value)
+
     def _handle_start(self, header, parts, worker_queue):
         msg_number = header.get("msg_number", -1)
         try:
@@ -61,8 +69,7 @@ class FileWriter():
                     group = self._fh.create_group(group_name)
                     group.attrs['NX_class'] = 'NXdetector'
                     if len(parts) > 1:
-                        for key, value in parts[1].items():
-                            group.create_dataset(key, data=value)
+                        self.save_dict_to_h5(parts[1], group)
                     group.create_dataset("sequence_number", (0,), maxshape=(None, ), dtype=np.uint32)
                     self._number_dset_name = f"{group_name}/sequence_number"
                     time_dscreated = time.perf_counter() - time_start
@@ -78,7 +85,7 @@ class FileWriter():
             status = {'htype': 'status',
                       'state': 'error',
                       'error': str(e)}
-            logger.error('h%d: send status error msg', msg_number)
+            logger.error('h%d: send status error msg %s', msg_number, str(e))
             worker_queue.put([status,])
             
     def _handle_end(self, header, worker_queue):
