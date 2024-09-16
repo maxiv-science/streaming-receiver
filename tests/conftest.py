@@ -1,40 +1,78 @@
 import asyncio
+import logging
+import multiprocessing
 import random
 from typing import AsyncIterator, Callable, Coroutine, Any
 
+import aiohttp
 import numpy as np
 import pytest_asyncio
 import uvicorn
 import zmq
+from aiohttp import ClientConnectionError
 from pydantic_core import Url
 
 import app
 from app.main import main
 from stream1 import AcquisitionSocket
 
+from pytest import Parser
+
+def pytest_addoption(parser: Parser) -> None:
+    parser.addoption(
+        "--repub",
+        action="store_true",
+        dest="repub",
+        default=False,
+        help="enable repub tests",
+    )
+
+
+class UvicornServer(multiprocessing.Process):
+    def __init__(self, config: uvicorn.Config):
+        super().__init__()
+        self.server = uvicorn.Server(config=config)
+        self.config = config
+        logging.info("started server with config %s", config)
+
+    def stop(self) -> None:
+        self.terminate()
+
+    def run(self, *args: Any, **kwargs: Any) -> None:
+        self.server.run()
 
 @pytest_asyncio.fixture()
-async def streaming_receiver() -> AsyncIterator[Callable[[dict], Coroutine[None, None, None]]]:
+async def receiver_process(
+) -> AsyncIterator[Callable[[dict], Coroutine[None, None, None]]]:
     server_tasks = []
 
-    async def start_receiver(conf: dict) -> None:
+    async def start_generator(conf: dict, port: int=5000) -> None:
         a = app.main.app
         a.config = conf
-        config = uvicorn.Config(
-            a, port=5000, log_level="debug"
-        )
-        server = uvicorn.Server(config)
-        server_tasks.append((server, asyncio.create_task(server.serve())))
-        while server.started is False:
-            await asyncio.sleep(0.1)
+        config = uvicorn.Config(a, port=port, log_level="debug")
+        instance = UvicornServer(config=config)
+        instance.start()
 
-    yield start_receiver
+        async with aiohttp.ClientSession() as session:
+            while True:
+                try:
+                    st = await session.get(f"http://localhost:{port}/status")
+                    if st.status == 200:
+                        break
+                    else:
+                        await asyncio.sleep(0.5)
+                except ClientConnectionError:
+                    await asyncio.sleep(0.5)
 
-    for server, task in server_tasks:
-        server.should_exit = True
-        await task
+        server_tasks.append(instance)
+
+    yield start_generator
+
+    for server in server_tasks:
+        server.stop()
 
     await asyncio.sleep(0.1)
+
 
 @pytest_asyncio.fixture
 async def stream_stins() -> Callable[
