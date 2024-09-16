@@ -40,9 +40,9 @@ async def streaming_receiver() -> AsyncIterator[Callable[[dict], Coroutine[None,
 async def stream_stins() -> Callable[
     [zmq.Context[Any], int, int], Coroutine[Any, Any, None]
 ]:
-    async def _make_stins(ctx: zmq.Context[Any], port: int, nframes: int) -> None:
+    async def _make_stins(ctx: zmq.Context[Any], filename: str, port: int, nframes: int, meta: Any=None) -> None:
         socket = AcquisitionSocket(ctx, Url(f"tcp://*:{port}"))
-        acq = await socket.start(filename="")
+        acq = await socket.start(filename=filename, meta=meta)
         width = 2000
         height = 4000
         for frameno in range(nframes):

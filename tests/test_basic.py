@@ -2,6 +2,8 @@ import asyncio
 import logging
 
 import aiohttp
+import h5py
+import numpy as np
 import pytest
 import zmq.asyncio
 
@@ -10,6 +12,7 @@ import zmq.asyncio
 async def test_simple(
     streaming_receiver,
     stream_stins,
+    tmp_path
 ) -> None:
 
     await streaming_receiver({"class":"Detector",
@@ -25,7 +28,8 @@ async def test_simple(
 
     context = zmq.asyncio.Context()
     ntrig = 10
-    asyncio.create_task(stream_stins(context, 9999, ntrig))
+    filename = tmp_path / "test.h5"
+    asyncio.create_task(stream_stins(context, str(filename), 9999, ntrig))
 
     async with aiohttp.ClientSession() as session:
         st = await session.get("http://localhost:5000/received_frames")
@@ -41,3 +45,8 @@ async def test_simple(
         content = await st.json()
 
         assert content["state"] == "idle"
+
+    with h5py.File(filename) as f:
+        assert f["entry/instrument/zyla/data"].shape == (ntrig, 2000, 4000)
+        seq = f["entry/instrument/zyla/sequence_number"][:]
+        assert list(seq) == list(range(ntrig))
