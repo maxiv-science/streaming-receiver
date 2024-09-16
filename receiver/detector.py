@@ -240,7 +240,7 @@ class Lambda(Detector):
             data_pull.append(sock)
             logger.info("connected to tcp://%s:%d", host, port)
         
-        last_meta_header = None
+        last_meta_header = {}
         
         while True:
             parts = []
