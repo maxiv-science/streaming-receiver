@@ -48,11 +48,15 @@ async def test_simple(
         assert content["state"] == "idle"
 
         fr = await session.get("http://localhost:5000/last_frame")
-        data = pickle.loads(fr.content)
+        parts = pickle.loads(await fr.read())
+        header = parts[0]
+        img = np.frombuffer(parts[1], dtype=header['type']).reshape(header['shape'])
 
-        logging.debug("data %s", data)
+        logging.debug("data %s", img)
 
     with h5py.File(filename) as f:
         assert f["entry/instrument/zyla/data"].shape == (ntrig, 2000, 4000)
         seq = f["entry/instrument/zyla/sequence_number"][:]
         assert list(seq) == list(range(ntrig))
+        assert np.array_equal(img, f["entry/instrument/zyla/data"][-1] )
+        assert not np.array_equal(img, f["entry/instrument/zyla/data"][-2] )
