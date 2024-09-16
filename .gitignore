@@ -1,0 +1,6 @@
+__pycache__
+*.so
+receiver/processing.c*
+receiver/_version.py
+*.egg-info
+build
