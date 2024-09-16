@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import pickle
 
 import aiohttp
 import h5py
@@ -45,6 +46,11 @@ async def test_simple(
         content = await st.json()
 
         assert content["state"] == "idle"
+
+        fr = await session.get("http://localhost:5000/last_frame")
+        data = pickle.loads(fr.content)
+
+        logging.debug("data %s", data)
 
     with h5py.File(filename) as f:
         assert f["entry/instrument/zyla/data"].shape == (ntrig, 2000, 4000)
