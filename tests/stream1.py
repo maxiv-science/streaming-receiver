@@ -33,7 +33,10 @@ class Acquisition:
         frameno: int,
         typ: str = "uint16",
         compression: str = "none",
+        extra_fields: dict = None
     ) -> None:
+        if extra_fields is None:
+            extra_fields = {}
         before = time.perf_counter()
         await self._socket.send_json(
             {
@@ -43,6 +46,7 @@ class Acquisition:
                 "type": typ,
                 "compression": compression,
                 "msg_number": next(self._msg_number),
+                **extra_fields
             },
             flags=zmq.SNDMORE,
         )

@@ -123,13 +123,19 @@ class FileWriter():
                 ndset = self._fh.get(self._number_dset_name)
                 if not ndset:
                     ndset = self._fh.create_dataset(self._number_dset_name, (0,), maxshape=(None,), dtype=np.uint32)
-                length = ndset.shape[0]
-                ndset.resize(length + 1, axis=0)
-                ndset[length] = int(header["frame"])
-            n = dset.shape[0]
-            dset.resize(n+1, axis=0)
-            offsets = [n, *[0]*(dset.ndim-1)]
-            for i in range(1, len(parts)):
-                offsets[1] = i - 1
-                dset.id.write_direct_chunk(offsets, parts[i])
-            logger.debug("wrote frame at offsets %s", offsets)
+                if "discard" in header and header["discard"] == True:
+                    logger.debug("discard frame and don't save to h5")
+                else:
+                    length = ndset.shape[0]
+                    ndset.resize(length + 1, axis=0)
+                    ndset[length] = int(header["frame"])
+            if "discard" in header and header["discard"] == True:
+                logger.debug("discard frame and don't save to h5")
+            else:
+                n = dset.shape[0]
+                dset.resize(n+1, axis=0)
+                offsets = [n, *[0]*(dset.ndim-1)]
+                for i in range(1, len(parts)):
+                    offsets[1] = i - 1
+                    dset.id.write_direct_chunk(offsets, parts[i])
+                logger.debug("wrote frame at offsets %s", offsets)
