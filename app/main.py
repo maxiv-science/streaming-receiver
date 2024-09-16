@@ -23,46 +23,6 @@ from receiver.utils import cancel_and_wait
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
-@app.get('/status')
-def status(req: Request):
-    return req.app.state.collector.status
-
-@app.get('/received_frames')
-async def received_frames(req: Request):
-    return {'value': req.app.state.collector.received_frames}
-
-@app.get('/downsample')
-async def get_downsample(req: Request):
-    return {'value': req.app.state.collector.downsample}
-
-@app.post('/downsample')
-async def post_downsample(req: Request, value: int):
-    req.app.state.collector.downsample = value
-    return {'value': value}
-
-# since this is a sync function fastapi will run this function in a threadpool
-# so make sure it is threadsafe
-@app.get('/last_frame', response_class=Response)
-def last_frame(req: Request):
-    downsample_factor = req.app.state.collector.downsample
-    last_frame = req.app.state.collector.last_frame.read()
-    header = last_frame[0]
-    if downsample_factor > 1 and header['compression'] == 'none' and header['type'] == 'uint16':
-        img = downsample(last_frame[1], header['shape'], downsample_factor)
-        header = header.copy()
-        header['shape'] = img.shape
-        payload = pickle.dumps([header, img])
-    else:
-        parts = []
-        for p in last_frame:
-            if isinstance(p, zmq.Frame):
-                parts.append(p.bytes)
-            else:
-                parts.append(p)
-        payload = pickle.dumps(parts)
-    return Response(payload, media_type='image/pickle')
-
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     config = app.config
@@ -97,6 +57,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     collector_task = asyncio.create_task(collector.run(worker_queue, writer_queue, [forwarder, ]))
 
     app.state.collector = collector
+    print("all done, start app")
 
     yield
 
@@ -136,3 +97,42 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+@app.get('/status')
+def status(req: Request):
+    return req.app.state.collector.status
+
+@app.get('/received_frames')
+async def received_frames(req: Request):
+    return {'value': req.app.state.collector.received_frames}
+
+@app.get('/downsample')
+async def get_downsample(req: Request):
+    return {'value': req.app.state.collector.downsample}
+
+@app.post('/downsample')
+async def post_downsample(req: Request, value: int):
+    req.app.state.collector.downsample = value
+    return {'value': value}
+
+# since this is a sync function fastapi will run this function in a threadpool
+# so make sure it is threadsafe
+@app.get('/last_frame', response_class=Response)
+def last_frame(req: Request):
+    downsample_factor = req.app.state.collector.downsample
+    last_frame = req.app.state.collector.last_frame.read()
+    header = last_frame[0]
+    if downsample_factor > 1 and header['compression'] == 'none' and header['type'] == 'uint16':
+        img = downsample(last_frame[1], header['shape'], downsample_factor)
+        header = header.copy()
+        header['shape'] = img.shape
+        payload = pickle.dumps([header, img])
+    else:
+        parts = []
+        for p in last_frame:
+            if isinstance(p, zmq.Frame):
+                parts.append(p.bytes)
+            else:
+                parts.append(p)
+        payload = pickle.dumps(parts)
+    return Response(payload, media_type='image/pickle')
