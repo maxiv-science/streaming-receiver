@@ -2,6 +2,7 @@ import time
 import asyncio
 import logging
 from .queuey import Queuey
+from .utils import cancel_and_wait
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,7 @@ class Collector():
         self.received_frames = 0
         self.last_frame = SeqLock([{}, b''])
         self.status = {'state': 'idle'}
+        self.metrics_task = None
         
     async def _update_metrics(self):
         while True:
@@ -83,7 +85,7 @@ class Collector():
                 logger.info("received %d frames in the last %f seconds", (self.received_frames - old), (end - start))
 
     async def run(self, worker_queue, writer_queue, forwarders):
-        asyncio.create_task(self._update_metrics())
+        self.metrics_task = asyncio.create_task(self._update_metrics())
         
         async for parts in ordered_recv(worker_queue):
             header = parts[0]
@@ -101,3 +103,6 @@ class Collector():
             writer_queue.put(parts)
             for forwarder in forwarders:
                 await forwarder.forward(parts)
+
+    async def close(self):
+        await cancel_and_wait(self.metrics_task)

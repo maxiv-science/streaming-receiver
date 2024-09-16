@@ -4,6 +4,8 @@ import struct
 import asyncio
 import logging
 
+from receiver.utils import cancel_and_wait
+
 logger = logging.getLogger(__name__)
             
 class Forwarder():
@@ -17,7 +19,7 @@ class Forwarder():
         self.push_socket.bind(f'tcp://*:{port}')
         logger.info("bound to socket tcp://*:%d", port)
         self.monitor = self.push_socket.get_monitor_socket()
-        asyncio.create_task(self.event_monitor())
+        self.monitor_task = asyncio.create_task(self.event_monitor())
         
     async def event_monitor(self):
         while True:
@@ -41,3 +43,6 @@ class Forwarder():
                     
             await self.push_socket.send_multipart(msgs, copy=False)
             logger.debug("forwarded message")
+
+    async def close(self):
+        await cancel_and_wait(self.monitor_task)

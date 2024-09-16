@@ -18,6 +18,7 @@ from receiver.filewriter import FileWriter
 from receiver.processing import downsample
 from receiver.detector import Detector
 from receiver import detector as available_classes
+from receiver.utils import cancel_and_wait
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -98,6 +99,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.collector = collector
 
     yield
+
+    await forwarder.close()
+
+    await collector.close()
+    await cancel_and_wait(collector_task)
 
 
 app = FastAPI(lifespan=lifespan)
