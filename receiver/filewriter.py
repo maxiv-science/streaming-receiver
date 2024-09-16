@@ -24,7 +24,7 @@ class FileWriter():
         logger.info("initialised FileWriter for dset %s", self._dset_name)
         
     def run(self, worker_queue: Queuey, writer_queue: Queuey):
-        self._thread = Thread(target=self._main, args=(worker_queue, writer_queue))
+        self._thread = Thread(target=self._main, args=(worker_queue, writer_queue), daemon=True)
         self._thread.start()
         
     def _main(self, worker_queue, writer_queue):

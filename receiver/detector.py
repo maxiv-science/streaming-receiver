@@ -98,17 +98,18 @@ class Detector():
                 wconfig = copy(config)
                 wconfig["dcu_host_purple"] = ip
                 wconfig['dcu_port_purple'] = port
-                t = Thread(target=self.worker, args=(wconfig, queue))
+                t = Thread(target=self.worker, args=(wconfig, queue), daemon=True)
                 t.start()
                 self.threads.append(t)
                 logger.info("created worker thread with config", wconfig)
         else:
             nworkers = config.get('nworkers', 1)
             for i in range(nworkers):
-                t = Thread(target=self.worker, args=(config, queue))
+                t = Thread(target=self.worker, args=(config, queue), daemon=True)
                 t.start()
                 self.threads.append(t)
             logger.info("created %d worker threads", nworkers)
+
 
     def worker(self, config, queue: Queuey):
         data_pull = self.context.socket(zmq.PULL)

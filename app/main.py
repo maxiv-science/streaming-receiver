@@ -1,3 +1,7 @@
+from asyncio import Task, Future
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator, Any
+
 import yaml
 import pickle
 import uvicorn
@@ -57,10 +61,14 @@ def last_frame(req: Request):
                 parts.append(p)
         payload = pickle.dumps(parts)
     return Response(payload, media_type='image/pickle')
-    
-async def main(config):
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    config = app.config
+
     class_name = config['class']
-    available_detectors = {k:v for k,v in available_classes.__dict__.items() if isinstance(v, type) and issubclass(v, Detector)}
+    available_detectors = {k: v for k, v in available_classes.__dict__.items() if
+                           isinstance(v, type) and issubclass(v, Detector)}
     if class_name in available_detectors:
         detector_class = available_detectors[class_name]
     else:
@@ -82,32 +90,43 @@ async def main(config):
     collector = Collector()
     writer = FileWriter(config['dset_name'])
     writer.run(worker_queue, writer_queue)
-    
+
     context = zmq.asyncio.Context()
     forwarder = Forwarder(context, config['data_port'])
-    asyncio.create_task(collector.run(worker_queue, writer_queue, [forwarder,]))
-    
+    collector_task = asyncio.create_task(collector.run(worker_queue, writer_queue, [forwarder, ]))
+
     app.state.collector = collector
 
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
+
+def main():
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('config_file', type=str, help='yaml configuration file')
+    parser.add_argument('detector', type=str, help='Name of detector in config file')
+    args = parser.parse_args()
+
+    with open(args.config_file) as fh:
+        config = yaml.load(fh, Loader=yaml.FullLoader)[args.detector]
+
+    logger.info("load config: %s", config)
+    app.config = config
+    port = config.get('api_port', 5000)
     api_loglevel = os.getenv("LOG_LEVEL", "INFO").lower()
     if api_loglevel == "info":
         api_loglevel = "warning"
     if api_loglevel == "debug":
         api_loglevel = "info"
+    try:
+        config = uvicorn.Config(app, port=port, host="::", log_level=api_loglevel)
+        server = uvicorn.Server(config)
+        server.run()
+    except KeyboardInterrupt:
+        print("exiting")
+    #asyncio.run(main(config))
 
-    port = config.get('api_port', 5000)
-    config = uvicorn.Config(app, host='0.0.0.0', port=port, log_level=api_loglevel)
-    server = uvicorn.Server(config)
-    await server.serve()
-    
-#if __name__ == '__main__':
-parser = argparse.ArgumentParser()
-parser.add_argument('config_file', type=str, help='yaml configuration file')
-parser.add_argument('detector', type=str, help='Name of detector in config file')
-args = parser.parse_args()
-
-with open(args.config_file) as fh:
-    config = yaml.load(fh, Loader=yaml.FullLoader)[args.detector]
-    
-logger.info("load config: %s", config)
-asyncio.run(main(config))
+if __name__ == '__main__':
+    main()
