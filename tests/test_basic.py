@@ -9,6 +9,20 @@ import pytest
 import zmq.asyncio
 
 
+async def consume(num) -> None:
+    c = zmq.asyncio.Context()
+    s = c.socket(zmq.PULL)
+    s.connect("tcp://localhost:23006")
+    for i in range(num):
+        logging.info("recv %d", i)
+        task = s.poll()
+        waiting = asyncio.gather(*[task])
+        done = await waiting
+        logging.info("done %s", done)
+        data = s.recv_multipart(copy=False)
+        logging.info("i %d, data %s", i, data)
+    c.destroy()
+
 @pytest.mark.asyncio
 async def test_simple(
     streaming_receiver,
@@ -28,7 +42,10 @@ async def test_simple(
             st = await session.get("http://localhost:5000/status")
 
     context = zmq.asyncio.Context()
+
     ntrig = 10
+    ctask = asyncio.create_task(consume(ntrig))
+
     filename = tmp_path / "test.h5"
     asyncio.create_task(stream_stins(context, str(filename), 9999, ntrig))
 
@@ -53,6 +70,8 @@ async def test_simple(
         img = np.frombuffer(parts[1], dtype=header['type']).reshape(header['shape'])
 
         logging.debug("data %s", img)
+
+    await ctask
 
     with h5py.File(filename) as f:
         assert f["entry/instrument/zyla/data"].shape == (ntrig, 2000, 4000)
