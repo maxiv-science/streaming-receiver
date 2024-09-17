@@ -16,11 +16,11 @@ requirements:
     - {{ compiler('c') }}
 
   host:
-    - python
+    - python <3.12
     - cython
     
   run:
-    - python
+    - python <3.12
     - numpy
     - h5py
     - pyyaml
