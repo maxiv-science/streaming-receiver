@@ -1,7 +1,3 @@
-#[project]
-#name = "streaming-receiver"
-#dynamic = ["version"]
-
 [build-system]
 requires = [
     "setuptools>=45",
@@ -13,11 +9,3 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
 write_to = "receiver/_version.py"
-
-
-#[project.optional-dependencies]
-#tests = [
-#    "pytest",
-#    "pytest-asyncio",
-#    "aiohttp",
-# ]

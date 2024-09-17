@@ -12,8 +12,10 @@ extentions = [Extension('receiver.processing',
 setup(
     name='streaming-receiver',
     packages=find_packages(),
+    install_requires=["numpy", "h5py", "pyyaml", "pyzmq", "uvicorn", "fastapi", "bitshuffle-python", "cbor2"],
     ext_modules=cythonize(extentions),
     #include_dirs=[np.get_include()],
+    tests_require=["pytest", "pytest-asyncio", "aiohttp"],
     entry_points = {
         'console_scripts': ['streaming-receiver = app.main:main',]
     }
