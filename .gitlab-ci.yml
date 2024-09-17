@@ -3,5 +3,11 @@ include:
     file:
       - '/Docker.gitlab-ci.yml'
 
+  - project: 'kits-maxiv/cfg-maxiv-gitlabci'
+    file: '/.python-ci.yml'
+
 variables:
   DOCKER_REGISTRY: "harbor.maxiv.lu.se/daq"
+
+#.test-python:
+  #image: harbor.maxiv.lu.se/kits-sw/python-testing:3.9-9.3.6
