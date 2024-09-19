@@ -88,7 +88,7 @@ def main():
     if api_loglevel == "debug":
         api_loglevel = "info"
     try:
-        config = uvicorn.Config(app, port=port, host="::", log_level=api_loglevel)
+        config = uvicorn.Config(app, port=port, host="0.0.0.0", log_level=api_loglevel)
         server = uvicorn.Server(config)
         server.run()
     except KeyboardInterrupt:
