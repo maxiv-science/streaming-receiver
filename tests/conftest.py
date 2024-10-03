@@ -12,7 +12,7 @@ import zmq
 from aiohttp import ClientConnectionError
 from pydantic_core import Url
 
-import app
+import app.main
 from stream1 import AcquisitionSocket
 
 from pytest import Parser
