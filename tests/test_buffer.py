@@ -34,10 +34,10 @@ async def custom_stins(port, filename, totalframes, start, stop) -> None:
     ctx.destroy()
 
 
-#@pytest.mark.skipif(
+# @pytest.mark.skipif(
 #    "not config.getoption('repub')",
 #    reason="explicitly enable --repub",
-#)
+# )
 @pytest.mark.asyncio
 async def test_repub(receiver_process, stream_stins, tmp_path) -> None:
     await receiver_process(
