@@ -16,7 +16,7 @@ setup(
     ext_modules=cythonize(extentions),
     #include_dirs=[np.get_include()],
     extras_require={
-        'tests': ["pytest", "pytest-asyncio", "aiohttp"]
+        'tests': ["pytest", "pytest-asyncio", "aiohttp", "pydantic-core"]
     },
     entry_points = {
         'console_scripts': ['streaming-receiver = app.main:main',]
