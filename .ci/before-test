@@ -1,1 +1,1 @@
-mamba install -p /env bitshuffle-python
+mamba install -p /env -c maxiv bitshuffle-python
