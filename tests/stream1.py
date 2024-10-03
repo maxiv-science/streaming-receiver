@@ -33,7 +33,7 @@ class Acquisition:
         frameno: int,
         typ: str = "uint16",
         compression: str = "none",
-        extra_fields: dict = None
+        extra_fields: dict = None,
     ) -> None:
         if extra_fields is None:
             extra_fields = {}
@@ -46,7 +46,7 @@ class Acquisition:
                 "type": typ,
                 "compression": compression,
                 "msg_number": next(self._msg_number),
-                **extra_fields
+                **extra_fields,
             },
             flags=zmq.SNDMORE,
         )
@@ -62,9 +62,7 @@ class Acquisition:
 
 
 class AcquisitionSocket:
-    def __init__(
-        self, ctx: zmq.Context[Any], bind: Url, typ: int = zmq.PUSH
-    ) -> None:
+    def __init__(self, ctx: zmq.Context[Any], bind: Url, typ: int = zmq.PUSH) -> None:
         self.data_socket = ctx.socket(typ)
         self.data_socket.bind(str(bind))
         self.msg_number = itertools.count(0)

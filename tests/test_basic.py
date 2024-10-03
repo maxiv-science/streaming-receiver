@@ -23,17 +23,18 @@ async def consume(num) -> None:
         logging.info("i %d, data %s", i, data)
     c.destroy()
 
-@pytest.mark.asyncio
-async def test_simple(
-    receiver_process,
-    stream_stins,
-    tmp_path
-) -> None:
 
-    await receiver_process({"class":"Detector",
-                              "dcu_host_purple": "127.0.0.1",
-                              "data_port": 23006,
-                              "dset_name": "/entry/instrument/zyla/data"})
+@pytest.mark.asyncio
+async def test_simple(receiver_process, stream_stins, tmp_path) -> None:
+
+    await receiver_process(
+        {
+            "class": "Detector",
+            "dcu_host_purple": "127.0.0.1",
+            "data_port": 23006,
+            "dset_name": "/entry/instrument/zyla/data",
+        }
+    )
 
     async with aiohttp.ClientSession() as session:
         st = await session.get("http://localhost:5000/status")
@@ -72,7 +73,7 @@ async def test_simple(
         fr = await session.get("http://localhost:5000/last_frame")
         parts = pickle.loads(await fr.read())
         header = parts[0]
-        img = np.frombuffer(parts[1], dtype=header['type']).reshape(header['shape'])
+        img = np.frombuffer(parts[1], dtype=header["type"]).reshape(header["shape"])
 
         logging.debug("data %s", img)
 
@@ -82,5 +83,5 @@ async def test_simple(
         assert f["entry/instrument/zyla/data"].shape == (ntrig, 2000, 4000)
         seq = f["entry/instrument/zyla/sequence_number"][:]
         assert list(seq) == list(range(ntrig))
-        assert np.array_equal(img, f["entry/instrument/zyla/data"][-1] )
-        assert not np.array_equal(img, f["entry/instrument/zyla/data"][-2] )
+        assert np.array_equal(img, f["entry/instrument/zyla/data"][-1])
+        assert not np.array_equal(img, f["entry/instrument/zyla/data"][-2])

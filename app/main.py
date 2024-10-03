@@ -23,38 +23,53 @@ from receiver.utils import cancel_and_wait
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     config = app.config
 
-    class_name = config['class']
-    available_detectors = {k: v for k, v in available_classes.__dict__.items() if
-                           isinstance(v, type) and issubclass(v, Detector)}
+    class_name = config["class"]
+    available_detectors = {
+        k: v
+        for k, v in available_classes.__dict__.items()
+        if isinstance(v, type) and issubclass(v, Detector)
+    }
     if class_name in available_detectors:
         detector_class = available_detectors[class_name]
     else:
-        raise RuntimeError(f'Unknow detector name: {class_name}')
-    pipeline_name = config.get('pipeline', None)
-    available_pipelines = {k: v for k, v in available_classes.__dict__.items() if
-                           isinstance(v, type) and not issubclass(v, Detector)}
+        raise RuntimeError(f"Unknow detector name: {class_name}")
+    pipeline_name = config.get("pipeline", None)
+    available_pipelines = {
+        k: v
+        for k, v in available_classes.__dict__.items()
+        if isinstance(v, type) and not issubclass(v, Detector)
+    }
     if pipeline_name is None:
         pipeline = None
     elif pipeline_name in available_pipelines:
         pipeline = available_pipelines[pipeline_name](config)
     else:
-        raise RuntimeError(f'Unknow pipeline name: {pipeline_name}')
+        raise RuntimeError(f"Unknow pipeline name: {pipeline_name}")
     detector = detector_class(pipeline)
 
     worker_queue = Queuey()
     writer_queue = Queuey()
     detector.run(config, worker_queue)
     collector = Collector()
-    writer = FileWriter(config['dset_name'])
+    writer = FileWriter(config["dset_name"])
     writer.run(worker_queue, writer_queue)
 
     context = zmq.asyncio.Context()
-    forwarder = Forwarder(context, config['data_port'])
-    collector_task = asyncio.create_task(collector.run(worker_queue, writer_queue, [forwarder, ]))
+    forwarder = Forwarder(context, config["data_port"])
+    collector_task = asyncio.create_task(
+        collector.run(
+            worker_queue,
+            writer_queue,
+            [
+                forwarder,
+            ],
+        )
+    )
 
     app.state.collector = collector
     print("all done, start app")
@@ -69,11 +84,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 app = FastAPI(lifespan=lifespan)
 
+
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('config_file', type=str, help='yaml configuration file')
-    parser.add_argument('detector', type=str, help='Name of detector in config file')
+    parser.add_argument("config_file", type=str, help="yaml configuration file")
+    parser.add_argument("detector", type=str, help="Name of detector in config file")
     args = parser.parse_args()
 
     with open(args.config_file) as fh:
@@ -81,7 +97,7 @@ def main():
 
     logger.info("load config: %s", config)
     app.config = config
-    port = config.get('api_port', 5000)
+    port = config.get("api_port", 5000)
     api_loglevel = os.getenv("LOG_LEVEL", "INFO").lower()
     if api_loglevel == "info":
         api_loglevel = "warning"
@@ -93,39 +109,49 @@ def main():
         server.run()
     except KeyboardInterrupt:
         print("exiting")
-    #asyncio.run(main(config))
+    # asyncio.run(main(config))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
 
-@app.get('/status')
+
+@app.get("/status")
 def status(req: Request):
     return req.app.state.collector.status
 
-@app.get('/received_frames')
+
+@app.get("/received_frames")
 async def received_frames(req: Request):
-    return {'value': req.app.state.collector.received_frames}
+    return {"value": req.app.state.collector.received_frames}
 
-@app.get('/downsample')
+
+@app.get("/downsample")
 async def get_downsample(req: Request):
-    return {'value': req.app.state.collector.downsample}
+    return {"value": req.app.state.collector.downsample}
 
-@app.post('/downsample')
+
+@app.post("/downsample")
 async def post_downsample(req: Request, value: int):
     req.app.state.collector.downsample = value
-    return {'value': value}
+    return {"value": value}
+
 
 # since this is a sync function fastapi will run this function in a threadpool
 # so make sure it is threadsafe
-@app.get('/last_frame', response_class=Response)
+@app.get("/last_frame", response_class=Response)
 def last_frame(req: Request):
     downsample_factor = req.app.state.collector.downsample
     last_frame = req.app.state.collector.last_frame.read()
     header = last_frame[0]
-    if downsample_factor > 1 and header['compression'] == 'none' and header['type'] == 'uint16':
-        img = downsample(last_frame[1], header['shape'], downsample_factor)
+    if (
+        downsample_factor > 1
+        and header["compression"] == "none"
+        and header["type"] == "uint16"
+    ):
+        img = downsample(last_frame[1], header["shape"], downsample_factor)
         header = header.copy()
-        header['shape'] = img.shape
+        header["shape"] = img.shape
         payload = pickle.dumps([header, img])
     else:
         parts = []
@@ -135,4 +161,4 @@ def last_frame(req: Request):
             else:
                 parts.append(p)
         payload = pickle.dumps(parts)
-    return Response(payload, media_type='image/pickle')
+    return Response(payload, media_type="image/pickle")

@@ -6,6 +6,7 @@ from .utils import cancel_and_wait
 
 logger = logging.getLogger(__name__)
 
+
 async def ordered_recv(queue: Queuey):
     cache = {}
     next_msg_number = -1
@@ -13,18 +14,18 @@ async def ordered_recv(queue: Queuey):
         parts = await queue.get_async()
         header = parts[0]
         # just pass on status messages
-        if header['htype'] == 'status':
+        if header["htype"] == "status":
             yield parts
             continue
-        
-        msg_number = header['msg_number']
-        if header['htype'] == 'header':
+
+        msg_number = header["msg_number"]
+        if header["htype"] == "header":
             next_msg_number = msg_number
             # clear cache and remove older leftover messages if previous series didn't properly finish
             for key in list(cache.keys()):
                 if key < msg_number:
                     del cache[key]
-                    
+
         if msg_number == next_msg_number:
             yield parts
             next_msg_number += 1
@@ -34,47 +35,47 @@ async def ordered_recv(queue: Queuey):
                 next_msg_number += 1
         else:
             cache[msg_number] = parts
-            
+
 
 # seqlock algorithm from linux to threadsafe read data while producer could be updating the data
 # works by updating a counter and if the counter is even the data is good and if the counter is odd
 # the data is being written to
-class SeqLock():
+class SeqLock:
     def __init__(self, data):
         self.counter = 0
         self.data = data
-        
+
     def write(self, data):
         self.counter += 1
         self.data = data
         self.counter += 1
-        
+
     def _try_read(self):
         counter = self.counter
         # write in progress if counter is odd
-        if (counter & 1 != 0):
+        if counter & 1 != 0:
             return False, None
-        
+
         data = self.data.copy()
         # make sure counter was not modified while copying data
         return counter == self.counter, data
-        
+
     def read(self):
         success, data = self._try_read()
         while not success:
             success, data = self._try_read()
         return data
-        
-            
-class Collector():
+
+
+class Collector:
     def __init__(self):
         self.frame_rate = 0
         self.downsample = 1
         self.received_frames = 0
-        self.last_frame = SeqLock([{}, b''])
-        self.status = {'state': 'idle'}
+        self.last_frame = SeqLock([{}, b""])
+        self.status = {"state": "idle"}
         self.metrics_task = None
-        
+
     async def _update_metrics(self):
         while True:
             start = time.time()
@@ -82,22 +83,26 @@ class Collector():
             await asyncio.sleep(1.0)
             end = time.time()
             if (self.received_frames - old) > 0:
-                logger.info("received %d frames in the last %f seconds", (self.received_frames - old), (end - start))
+                logger.info(
+                    "received %d frames in the last %f seconds",
+                    (self.received_frames - old),
+                    (end - start),
+                )
 
     async def run(self, worker_queue, writer_queue, forwarders):
         self.metrics_task = asyncio.create_task(self._update_metrics())
-        
+
         async for parts in ordered_recv(worker_queue):
             header = parts[0]
             logger.debug("process %s", parts[0])
-            
-            if header['htype'] == 'status':
-                header.pop('htype')
+
+            if header["htype"] == "status":
+                header.pop("htype")
                 self.status = header
                 continue
-            elif header['htype'] == 'header':
+            elif header["htype"] == "header":
                 self.received_frames = 0
-            elif header['htype'] == 'image':
+            elif header["htype"] == "image":
                 self.received_frames += 1
                 self.last_frame.write(parts)
             writer_queue.put(parts)

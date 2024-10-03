@@ -18,6 +18,7 @@ from stream1 import AcquisitionSocket
 
 from pytest import Parser
 
+
 def pytest_addoption(parser: Parser) -> None:
     parser.addoption(
         "--repub",
@@ -41,12 +42,14 @@ class UvicornServer(multiprocessing.Process):
     def run(self, *args: Any, **kwargs: Any) -> None:
         self.server.run()
 
+
 @pytest_asyncio.fixture()
-async def receiver_process(
-) -> AsyncIterator[Callable[[dict], Coroutine[None, None, None]]]:
+async def receiver_process() -> (
+    AsyncIterator[Callable[[dict], Coroutine[None, None, None]]]
+):
     server_tasks = []
 
-    async def start_generator(conf: dict, port: int=5000) -> None:
+    async def start_generator(conf: dict, port: int = 5000) -> None:
         a = app.main.app
         a.config = conf
         config = uvicorn.Config(a, port=port, log_level="debug")
@@ -75,10 +78,12 @@ async def receiver_process(
 
 
 @pytest_asyncio.fixture
-async def stream_stins() -> Callable[
-    [zmq.Context[Any], int, int], Coroutine[Any, Any, None]
-]:
-    async def _make_stins(ctx: zmq.Context[Any], filename: str, port: int, nframes: int, meta: Any=None) -> None:
+async def stream_stins() -> (
+    Callable[[zmq.Context[Any], int, int], Coroutine[Any, Any, None]]
+):
+    async def _make_stins(
+        ctx: zmq.Context[Any], filename: str, port: int, nframes: int, meta: Any = None
+    ) -> None:
         socket = AcquisitionSocket(ctx, Url(f"tcp://*:{port}"))
         acq = await socket.start(filename=filename, meta=meta)
         width = 2000
@@ -86,9 +91,9 @@ async def stream_stins() -> Callable[
         for frameno in range(nframes):
             img = np.zeros((width, height), dtype=np.uint16)
             for _ in range(20):
-                img[random.randint(0, width - 1)][
-                    random.randint(0, height - 1)
-                ] = random.randint(0, 10)
+                img[random.randint(0, width - 1)][random.randint(0, height - 1)] = (
+                    random.randint(0, 10)
+                )
             await acq.image(img, img.shape, frameno)
             await asyncio.sleep(0.1)
         await acq.close()
