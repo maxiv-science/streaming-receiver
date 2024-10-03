@@ -85,7 +85,6 @@ app = FastAPI(lifespan=lifespan)
 
 
 def main():
-
     parser = argparse.ArgumentParser()
     parser.add_argument("config_file", type=str, help="yaml configuration file")
     parser.add_argument("detector", type=str, help="Name of detector in config file")

@@ -12,20 +12,20 @@ formax-lambda:
   api_port: 8001
   data_port: 23002
   dset_name: /entry/instrument/lambda/data
-  
+
 formax-eiger:
   class: Eiger
   dcu_host_purple: 172.18.28.6
   data_port: 23004
   dset_name: /entry/instrument/eiger/data
-    
+
 formax-zyla:
   class: Detector
   dcu_host_purple: 172.18.28.7
   dcu_port_purple: 9966
   data_port: 23006
   dset_name: /entry/instrument/zyla/data
-  
+
 formax-orca:
   class: Detector
   nworkers: 2
@@ -35,7 +35,7 @@ formax-orca:
   data_port: 23008
   dset_name: /entry/instrument/orca/data
   pipeline: OrcaPipeline
-  
+
 femtomax-pilatus:
   class: Detector
   nworkers: 4
@@ -53,7 +53,7 @@ danmax-pilatus4:
   api_port: 8001
   data_port: 26001
   dset_name: /entry/instrument/pilatus4/data
-  
+
 dummy-eiger:
   class: Eiger
   nworkers: 8
@@ -61,7 +61,7 @@ dummy-eiger:
   api_port: 8001
   data_port: 26001
   dset_name: /entry/instrument/eiger/data
-  
+
 psi-eiger:
   class: PsiEiger
   dcu_host_purple: 172.16.15.145

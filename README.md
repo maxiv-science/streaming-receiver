@@ -2,11 +2,11 @@
 Provides receivers to store data from detectors into HDF5 Files and optional parallel data transformation and processing. Also forwards data on "secondary zmq port" for arbitrary processing.
 
 Receivers for the following detectors:
- - Dectris Eiger 
+ - Dectris Eiger
  - Dectris Pilatus with frame ordering and cbf -> bitshuffle lz4 compression
  - Andor Zyla
  - Hamamatsu Orca Lightning
- - Xspectrum Lambda 
+ - Xspectrum Lambda
 
 
 ## Run
@@ -56,7 +56,7 @@ The msg_number field in the messages is a monotonic increasing values that helps
 }
 ```
 
-### image message 
+### image message
 is a multipart zmq message with 2 parts. First part is a json header
 ```json
 {
@@ -101,8 +101,8 @@ while True:
     print(header)
     if header['htype'] == 'image':
         if header['compression'] == 'bslz4':
-            img = decompress_lz4(parts[1].buffer, 
-                                 header['shape'], 
+            img = decompress_lz4(parts[1].buffer,
+                                 header['shape'],
                                  np.dtype(header['type']))
         else:
             img = np.frombuffer(parts[1], dtype=header['type'])

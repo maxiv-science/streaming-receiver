@@ -10,7 +10,7 @@ build:
   script: {{ PYTHON }} -m pip install . -vv
   entry_points:
     - streaming-receiver = app.main:main
-    
+
 requirements:
   build:
     - {{ compiler('c') }}
@@ -18,7 +18,7 @@ requirements:
   host:
     - python <3.12
     - cython
-    
+
   run:
     - python <3.12
     - numpy

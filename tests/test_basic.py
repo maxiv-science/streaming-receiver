@@ -26,7 +26,6 @@ async def consume(num) -> None:
 
 @pytest.mark.asyncio
 async def test_simple(receiver_process, stream_stins, tmp_path) -> None:
-
     await receiver_process(
         {
             "class": "Detector",

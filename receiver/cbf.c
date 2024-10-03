@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-typedef union 
+typedef union
 {
     const char* cp;
     const uint8_t* uint8;
@@ -50,7 +50,7 @@ void read_cbf(char* cbf, int32_t* output)
         printf("Error getting binary size\n");
         return;
     }
-    
+
     const char* header_end_mark = "\x0C\x1A\x04\xD5";
     ptr = strstr(cbf, header_end_mark);
     if (!ptr) {

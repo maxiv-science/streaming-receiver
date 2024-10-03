@@ -21,9 +21,9 @@ async def custom_stins(port, filename, totalframes, start, stop) -> None:
     for frameno in range(totalframes):
         img = np.zeros((width, height), dtype=np.uint16)
         for _ in range(20):
-            img[random.randint(0, width - 1)][random.randint(0, height - 1)] = (
-                random.randint(0, 10)
-            )
+            img[random.randint(0, width - 1)][
+                random.randint(0, height - 1)
+            ] = random.randint(0, 10)
         extra = {}
         if frameno < start or frameno >= stop:
             extra["discard"] = True
@@ -36,7 +36,6 @@ async def custom_stins(port, filename, totalframes, start, stop) -> None:
 
 @pytest.mark.asyncio
 async def test_simple(receiver_process, stream_stins, tmp_path) -> None:
-
     await receiver_process(
         {
             "class": "Detector",
