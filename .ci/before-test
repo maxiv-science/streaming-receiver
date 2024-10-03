@@ -1,1 +1,1 @@
-mamba install bitshuffle-python
+mamba -p /env install bitshuffle-python
