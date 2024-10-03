@@ -1,1 +1,7 @@
+RUN apt update \
+  && apt install -y build-essential \
+  && apt clean \
+  && rm -rf /var/lib/apt/lists/*
+
+
 mamba install -p /env -c maxiv bitshuffle-python
