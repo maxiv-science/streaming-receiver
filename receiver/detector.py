@@ -102,9 +102,7 @@ class Detector:
             if isinstance(ports, list):
                 if len(ips) != len(ports):
                     raise RuntimeError(
-                        f"config must have same number of IPs than ports: %s and %s",
-                        ips,
-                        ports,
+                        f"config must have same number of IPs than ports: {ips} and {ports}"
                     )
             else:
                 ports = [ports] * len(ips)
@@ -304,7 +302,6 @@ class Lambda(Detector):
 
             elif headers[0]["htype"] == "header":
                 meta = {"x": [], "y": [], "rotation": []}
-                x, y, rotation = [], [], []
                 for m in range(4):
                     info = json.loads(parts[m][1].bytes)
                     for key in ["x", "y", "rotation"]:

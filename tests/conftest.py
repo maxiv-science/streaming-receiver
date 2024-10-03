@@ -13,7 +13,6 @@ from aiohttp import ClientConnectionError
 from pydantic_core import Url
 
 import app
-from app.main import main
 from stream1 import AcquisitionSocket
 
 from pytest import Parser

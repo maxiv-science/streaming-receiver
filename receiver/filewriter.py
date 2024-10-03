@@ -1,12 +1,10 @@
 import logging
 import os
-import json
 import time
 
 import h5py
 import bitshuffle
 import numpy as np
-import logging
 from threading import Thread
 from datetime import datetime
 from .queuey import Queuey
@@ -155,13 +153,13 @@ class FileWriter:
                     ndset = self._fh.create_dataset(
                         self._number_dset_name, (0,), maxshape=(None,), dtype=np.uint32
                     )
-                if "discard" in header and header["discard"] == True:
+                if "discard" in header and header["discard"] is True:
                     logger.debug("discard frame and don't save to h5")
                 else:
                     length = ndset.shape[0]
                     ndset.resize(length + 1, axis=0)
                     ndset[length] = int(header["frame"])
-            if "discard" in header and header["discard"] == True:
+            if "discard" in header and header["discard"] is True:
                 logger.debug("discard frame and don't save to h5")
             else:
                 n = dset.shape[0]
