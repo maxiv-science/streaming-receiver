@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import random
 
 import aiohttp
@@ -34,10 +35,10 @@ async def custom_stins(port, filename, totalframes, start, stop) -> None:
     ctx.destroy()
 
 
-# @pytest.mark.skipif(
-#    "not config.getoption('repub')",
-#    reason="explicitly enable --repub",
-# )
+@pytest.mark.skipif(
+    "not config.getoption('repub')",
+    reason="explicitly enable --repub",
+)
 @pytest.mark.asyncio
 async def test_repub(receiver_process, stream_stins, tmp_path) -> None:
     await receiver_process(
@@ -52,7 +53,7 @@ async def test_repub(receiver_process, stream_stins, tmp_path) -> None:
     await receiver_process(
         {
             "class": "Detector",
-            "dcu_host_purple": "buffer",
+            "dcu_host_purple": os.getenv("BUFFER_HOST", "127.0.0.1"),
             "dcu_port_purple": 8999,
             "data_port": 4446,
             "dset_name": "/entry/instrument/zyla/data",
