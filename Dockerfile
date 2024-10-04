@@ -1,4 +1,4 @@
-FROM harbor.maxiv.lu.se/daq/conda-build:latest AS build
+FROM harbor.maxiv.lu.se/registry.gitlab.com/maxiv/docker/conda-build:latest AS build
 
 ARG version
 

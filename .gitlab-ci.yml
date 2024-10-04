@@ -10,14 +10,14 @@ variables:
   DOCKER_REGISTRY: "harbor.maxiv.lu.se/daq"
   PYTEST_EXTRA_ARGS: "--log-cli-level=INFO"
 
-.test-python:
-  variables:
-    REPUB_CONNECT: "tcp://build:5556"
-    REPUB_BIND: "tcp://0.0.0.0:8999"
-  services:
-    - name: harbor.maxiv.lu.se/daq/ring-buffer:main
-      alias: buffer
-      command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5005"]
+#.test-python:
+#  variables:
+#    REPUB_CONNECT: "tcp://build:5556"
+#    REPUB_BIND: "tcp://0.0.0.0:8999"
+#  services:
+#    - name: harbor.maxiv.lu.se/daq/ring-buffer:main
+#      alias: buffer
+#      command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5005"]
 
 #.test-python:
   #image: harbor.maxiv.lu.se/kits-sw/python-testing:3.9-9.3.6
