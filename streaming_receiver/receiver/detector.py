@@ -161,7 +161,7 @@ class Detector:
                     data_pull.close()
                     return
             header = json.loads(parts[0].bytes)
-            logger.debug("received frame with header %s", header)
+            logger.debug("received frame with header %s from host %s", header, host)
             if header["htype"] == "image":
                 header.update(self.start_info)
                 if self.pipeline:
@@ -424,11 +424,22 @@ class DectrisStream2(Detector):
         host = config["dcu_host_purple"]
         data_pull.connect(f"tcp://{host}:31001")
         logger.info("connected to tcp://%s:31001", host)
+        poller = zmq.Poller()
+        poller.register(data_pull, zmq.POLLIN)
 
         while True:
-            msg = data_pull.recv(copy=False)
+            while True:
+                socks = dict(poller.poll(timeout=1000))
+                if data_pull in socks:
+                    msg = data_pull.recv(copy=False)
+                    break
+                if evt.is_set():
+                    data_pull.close()
+                    return
+            logger.debug("got new message %d", len(msg.bytes))
             msg = cbor2.loads(msg.buffer, tag_hook=tag_hook)
             if msg["type"] == "start":
+                logger.info("start of series with user data: %s", msg["user_data"])
                 filename = json.loads(msg["user_data"])["filename"]
                 meta_header = {
                     "htype": "header",

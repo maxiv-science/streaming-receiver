@@ -3,6 +3,7 @@ import json
 import logging
 import multiprocessing
 import os
+import pickle
 import random
 from typing import AsyncIterator, Callable, Coroutine, Any
 
@@ -178,6 +179,60 @@ async def stream_eiger_dump() -> Callable[
                                     appendix["filename"] = dst_file
                                     frames[8] = json.dumps(appendix).encode("utf8")
                                 await socket.send_multipart(frames)
+                                await asyncio.sleep(frame_time)
+                            except EOFError:
+                                logging.warning("end of file reached")
+                                break
+
+                    break
+
+        socket.close()
+
+    return _make_dump
+
+
+@pytest_asyncio.fixture
+async def stream_dectris() -> Callable[
+    [
+        zmq.Context[Any],
+        os.PathLike[Any] | str,
+        str,
+        int,
+        float,
+        int,
+    ],
+    Coroutine[Any, Any, None],
+]:
+    async def _make_dump(
+        ctx: zmq.Context[Any],
+        filename: os.PathLike[Any] | str,
+        dst_file: str,
+        port: int,
+        frame_time: float = 0.1,
+        typ: int = zmq.PUSH,
+    ) -> None:
+        socket: zmq.Socket[Any] = ctx.socket(typ)
+        socket.bind(f"tcp://*:{port}")
+
+        with zipfile.ZipFile(filename) as zf:
+            for file in zf.namelist():
+                if file.endswith(".pkls"):  # optional filtering by filetype
+                    with zf.open(file) as f:
+                        while True:
+                            try:
+                                frames = pickle.load(f)
+                                logging.info("send frames %d", len(frames[0]))
+                                frame = frames[0]
+                                msg = cbor2.loads(frames[0])
+                                if msg["type"] == "start":
+                                    appendix = json.loads(msg["user_data"])
+                                    logging.info("appendix is %s", appendix)
+                                    appendix["filename"] = dst_file
+                                    msg["user_data"] = json.dumps(appendix).encode(
+                                        "utf8"
+                                    )
+                                    frame = cbor2.dumps(msg)
+                                await socket.send(frame)
                                 await asyncio.sleep(frame_time)
                             except EOFError:
                                 logging.warning("end of file reached")
