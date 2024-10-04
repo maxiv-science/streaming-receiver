@@ -17,7 +17,7 @@ from streaming_receiver.receiver.filewriter import FileWriter
 from streaming_receiver.receiver.processing import downsample
 from streaming_receiver.receiver.detector import Detector
 from streaming_receiver.receiver import detector as available_classes
-from streaming_receiver.receiver.utils import cancel_and_wait
+from streaming_receiver.receiver.utils import cancel_and_wait, done_callback
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -69,6 +69,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             ],
         )
     )
+    collector_task.add_done_callback(done_callback)
 
     app.state.collector = collector
     print("all done, start app")

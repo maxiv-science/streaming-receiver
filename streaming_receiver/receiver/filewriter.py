@@ -31,16 +31,19 @@ class FileWriter:
         self._thread.start()
 
     def _main(self, worker_queue, writer_queue):
-        while True:
-            parts = writer_queue.get()
-            header = parts[0]
-            # print('writer', header)
-            if header["htype"] == "header":
-                self._handle_start(header, parts, worker_queue)
-            elif header["htype"] == "series_end":
-                self._handle_end(header, worker_queue)
-            else:
-                self._handle_frame(header, parts)
+        try:
+            while True:
+                parts = writer_queue.get()
+                header = parts[0]
+                # print('writer', header)
+                if header["htype"] == "header":
+                    self._handle_start(header, parts, worker_queue)
+                elif header["htype"] == "series_end":
+                    self._handle_end(header, worker_queue)
+                else:
+                    self._handle_frame(header, parts)
+        except Exception as e:
+            logging.error("filewriter thread crashed %s", e.__repr__())
 
     def save_dict_to_h5(self, data, group):
         for key, value in data.items():
@@ -124,9 +127,11 @@ class FileWriter:
         )
 
     def _handle_frame(self, header, parts):
+        logger.debug("handling frame with header %s", header)
         if self._fh:
             dset = self._fh.get(self._dset_name)
             if not dset:
+                logger.debug("dataset %s does not exist, creating it", self._dset_name)
                 if "chunks" in header:
                     chunks = (1, *header["chunks"])
                 else:

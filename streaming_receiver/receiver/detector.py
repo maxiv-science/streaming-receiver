@@ -159,7 +159,6 @@ class Eiger(Detector):
         super().__init__(pipeline=pipeline)
         self._msg_number = count(0)
         logger.info("initialised Eiger")
-        logger.warning("newinit")
         self.rotate = 0
         self.start_info = {}
 
@@ -232,7 +231,7 @@ class Eiger(Detector):
         data_pull = self.context.socket(zmq.PULL)
         host = config["dcu_host_purple"]
         data_pull.connect(f"tcp://{host}:9999")
-        logger.info("connected to tcp://%s:9999", host)
+        logger.info("zmq connected to tcp://%s:9999 (may not have counterpart)", host)
 
         while True:
             parts = data_pull.recv_multipart(copy=False)

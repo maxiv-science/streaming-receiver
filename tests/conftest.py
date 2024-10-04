@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import multiprocessing
 import os
@@ -109,6 +110,7 @@ async def stream_eiger_dump() -> Callable[
     [
         zmq.Context[Any],
         os.PathLike[Any] | str,
+        str,
         int,
         float,
         int,
@@ -118,6 +120,7 @@ async def stream_eiger_dump() -> Callable[
     async def _make_dump(
         ctx: zmq.Context[Any],
         filename: os.PathLike[Any] | str,
+        dst_file: str,
         port: int,
         frame_time: float = 0.1,
         typ: int = zmq.PUSH,
@@ -134,6 +137,12 @@ async def stream_eiger_dump() -> Callable[
                                 dump = cbor2.load(f)
                                 frames = list(dump.value[1].values())[0].value[1]
                                 logging.info("send frames %s", frames[0])
+                                hdr = json.loads(frames[0])
+                                if hdr["htype"] == "dheader-1.0":
+                                    appendix = json.loads(frames[8])
+                                    logging.info("appendix is %s", appendix)
+                                    appendix["filename"] = dst_file
+                                    frames[8] = json.dumps(appendix).encode("utf8")
                                 await socket.send_multipart(frames)
                                 await asyncio.sleep(frame_time)
                             except EOFError:
