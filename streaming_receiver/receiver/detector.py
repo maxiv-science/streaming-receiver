@@ -297,14 +297,26 @@ class Lambda(Detector):
     def __init__(self, pipeline=None):
         super().__init__(pipeline=pipeline)
 
+    def run(self, config, queue):
+        self.shutdown_event = threading.Event()
+        t = Thread(
+            target=self.worker,
+            args=(config, queue, self.shutdown_event),
+            daemon=True,
+        )
+        t.start()
+        self.threads.append(t)
+
     def worker(self, config, queue: Queuey, evt):
         data_pull = []
+        poller = zmq.Poller()
         for i in range(4):
             sock = self.context.socket(zmq.PULL)
             host = config["dcu_host_purple"][i]
             port = 9010 + i
             sock.connect(f"tcp://{host}:{port}")
             data_pull.append(sock)
+            poller.register(sock, zmq.POLLIN)
             logger.info("connected to tcp://%s:%d", host, port)
 
         last_meta_header = {}
@@ -312,11 +324,21 @@ class Lambda(Detector):
         while True:
             parts = []
             headers = []
-            for s in data_pull:
-                msgs = s.recv_multipart(copy=False)
-                headers.append(json.loads(msgs[0].bytes))
-                parts.append(msgs)
+            while True:
+                socks = dict(poller.poll(timeout=1000))
+                if set(socks.keys()) == set(data_pull):
+                    for s in data_pull:
+                        msgs = s.recv_multipart(copy=False)
+                        headers.append(json.loads(msgs[0].bytes))
+                        parts.append(msgs)
+                    logger.debug("received from all 4 sockets %s", headers)
+                    break
+                if evt.is_set():
+                    for s in data_pull:
+                        s.close()
+                    return
 
+            logger.debug("merge frames together")
             for m in range(1, 4):
                 if (headers[0]["htype"] != headers[m]["htype"]) or (
                     headers[0]["msg_number"] != headers[m]["msg_number"]
@@ -339,18 +361,21 @@ class Lambda(Detector):
                 queue.put(merged)
 
             elif headers[0]["htype"] == "header":
-                meta = {"x": [], "y": [], "rotation": []}
-                for m in range(4):
-                    info = json.loads(parts[m][1].bytes)
-                    for key in ["x", "y", "rotation"]:
-                        meta[key].append(int(info[key]))
-                    meta["full_shape"] = info["full_shape"]
+                try:
+                    meta = {"x": [], "y": [], "rotation": []}
+                    for m in range(4):
+                        info = json.loads(parts[m][1].bytes)
+                        for key in ["x", "y", "rotation"]:
+                            meta[key].append(int(info[key]))
+                        meta["full_shape"] = info["full_shape"]
 
-                logger.info(
-                    "received header with headers %s and meta: %s", headers[0], meta
-                )
-                last_meta_header = meta
-                queue.put([headers[0], meta])
+                    logger.info(
+                        "received header with headers %s and meta: %s", headers[0], meta
+                    )
+                    last_meta_header = meta
+                    queue.put([headers[0], meta])
+                except Exception as e:
+                    logger.error("failed to process series header %s", e.__repr__())
 
             elif headers[0]["htype"] == "series_end":
                 queue.put(

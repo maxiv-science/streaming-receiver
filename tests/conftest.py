@@ -113,7 +113,12 @@ async def stream_stins() -> (
     Callable[[zmq.Context[Any], int, int], Coroutine[Any, Any, None]]
 ):
     async def _make_stins(
-        ctx: zmq.Context[Any], filename: str, port: int, nframes: int, meta: Any = None
+        ctx: zmq.Context[Any],
+        filename: str,
+        port: int,
+        nframes: int,
+        meta: Any = None,
+        extra_fields=None,
     ) -> None:
         socket = AcquisitionSocket(ctx, Url(f"tcp://*:{port}"))
         acq = await socket.start(filename=filename, meta=meta)
@@ -125,7 +130,7 @@ async def stream_stins() -> (
                 img[random.randint(0, width - 1)][
                     random.randint(0, height - 1)
                 ] = random.randint(0, 10)
-            await acq.image(img, img.shape, frameno)
+            await acq.image(img, img.shape, frameno, extra_fields=extra_fields)
             await asyncio.sleep(0.1)
         await acq.close()
         await socket.close()

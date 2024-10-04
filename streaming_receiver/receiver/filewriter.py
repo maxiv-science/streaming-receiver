@@ -137,6 +137,7 @@ class FileWriter:
                 else:
                     chunks = (1, *header["shape"])
 
+                logger.debug("chunks are %s", chunks)
                 compression, compression_opts = None, None
                 if header["compression"] == "bslz4":
                     compression = bitshuffle.BSHUF_H5FILTER
@@ -172,5 +173,6 @@ class FileWriter:
                 offsets = [n, *[0] * (dset.ndim - 1)]
                 for i in range(1, len(parts)):
                     offsets[1] = i - 1
+                    logger.debug("write chunk i at offset %s", offsets)
                     dset.id.write_direct_chunk(offsets, parts[i])
                 logger.debug("wrote frame at offsets %s", offsets)
