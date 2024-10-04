@@ -30,7 +30,7 @@ async def test_nested(streaming_receiver, stream_stins, tmp_path) -> None:
 
     filename = tmp_path / "test.h5"
     meta = {"top_level": {"nest": 42}}
-    await stream_stins(context, str(filename), 9999, ntrig, meta)
+    await stream_stins(context, str(filename), 9999, ntrig, meta=meta)
 
     async with aiohttp.ClientSession() as session:
         st = await session.get("http://localhost:5000/status")

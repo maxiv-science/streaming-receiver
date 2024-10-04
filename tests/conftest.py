@@ -117,13 +117,14 @@ async def stream_stins() -> (
         filename: str,
         port: int,
         nframes: int,
+        latency: float = 0.1,
         meta: Any = None,
         extra_fields=None,
+        width=2000,
+        height=4000,
     ) -> None:
         socket = AcquisitionSocket(ctx, Url(f"tcp://*:{port}"))
         acq = await socket.start(filename=filename, meta=meta)
-        width = 2000
-        height = 4000
         for frameno in range(nframes):
             img = np.zeros((width, height), dtype=np.uint16)
             for _ in range(20):
@@ -131,7 +132,7 @@ async def stream_stins() -> (
                     random.randint(0, height - 1)
                 ] = random.randint(0, 10)
             await acq.image(img, img.shape, frameno, extra_fields=extra_fields)
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(latency)
         await acq.close()
         await socket.close()
 

@@ -7,14 +7,21 @@ import pytest
 import zmq.asyncio
 
 
+@pytest.mark.parametrize(
+    "size, ntrig, delay, save",
+    [(50, 50000, 0.00001, False), (4000, 1000, 0.005, False)],
+)
 @pytest.mark.asyncio
-async def test_lambda(streaming_receiver, stream_stins, tmp_path) -> None:
+async def test_perf(
+    streaming_receiver, stream_stins, tmp_path, size, ntrig, delay, save
+) -> None:
     await streaming_receiver(
         {
-            "class": "Lambda",
-            "dcu_host_purple": ["127.0.0.1", "127.0.0.1", "127.0.0.1", "127.0.0.1"],
-            "data_port": 23011,
-            "dset_name": "/entry/instrument/lambda/data",
+            "class": "Detector",
+            "dcu_host_purple": "127.0.0.1",
+            "data_port": 23014,
+            "nworkers": 1,
+            "dset_name": "/entry/instrument/zyla/data",
         }
     )
 
@@ -26,25 +33,22 @@ async def test_lambda(streaming_receiver, stream_stins, tmp_path) -> None:
 
     context = zmq.asyncio.Context()
 
-    ntrig = 10
+    filename = ""
+    if save:
+        filename = tmp_path / "test.h5"
 
-    filename = tmp_path / "test.h5"
-    for i in range(4):
-        meta = {"x": 0, "y": i, "rotation": 90 * i, "full_shape": (2695, 2696)}
-        extra = {"shape": (4, 4000, 2000), "chunks": (1, 4000, 2000)}
-
-        asyncio.create_task(
-            stream_stins(
-                context, str(filename), 9010 + i, ntrig, meta=meta, extra_fields=extra
-            )
+    asyncio.create_task(
+        stream_stins(
+            context, str(filename), 9999, ntrig, delay, width=size, height=size
         )
+    )
 
     async with aiohttp.ClientSession() as session:
         st = await session.get("http://localhost:5000/received_frames")
         content = await st.json()
         logging.debug("frames is %s", content)
         while content["value"] < ntrig:
-            await asyncio.sleep(0.3)
+            await asyncio.sleep(1)
             st = await session.get("http://localhost:5000/received_frames")
             content = await st.json()
             logging.debug("frames is %s", content)
@@ -59,11 +63,8 @@ async def test_lambda(streaming_receiver, stream_stins, tmp_path) -> None:
 
         assert content["state"] == "idle"
 
-        # TODO: check lambda live viewer
-
-    with h5py.File(filename) as f:
-        assert f["entry/instrument/lambda/data"].shape == (ntrig, 4, 4000, 2000)
-        seq = f["entry/instrument/lambda/sequence_number"][:]
-        assert list(seq) == list(range(ntrig))
-        # assert np.array_equal(img, f["entry/instrument/zyla/data"][-1])
-        #   assert not np.array_equal(img, f["entry/instrument/zyla/data"][-2])
+    if save:
+        with h5py.File(filename) as f:
+            assert f["entry/instrument/zyla/data"].shape == (ntrig, size, size)
+            seq = f["entry/instrument/zyla/sequence_number"][:]
+            assert list(seq) == list(range(ntrig))
