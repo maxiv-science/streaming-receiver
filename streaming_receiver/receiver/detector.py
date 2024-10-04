@@ -159,6 +159,7 @@ class Eiger(Detector):
         super().__init__(pipeline=pipeline)
         self._msg_number = count(0)
         logger.info("initialised Eiger")
+        logger.warning("newinit")
         self.rotate = 0
         self.start_info = {}
 

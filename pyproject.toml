@@ -8,4 +8,43 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
-write_to = "receiver/_version.py"
+write_to = "streaming_receiver/_version.py"
+
+[project]
+name = "streaming_receiver"
+authors = [
+    { name=" Clemens Weninger", email="clemens.weninger@maxiv.lu.se" },
+    { name="Felix Engelmann", email="felix-github@nlogn.org" },
+]
+description = "A high bandwidth stream to hdf5 receiver"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "numpy",
+    "h5py",
+    "pyyaml",
+    "pyzmq",
+    "uvicorn",
+    "fastapi",
+    "cbor2",
+    "dectris-compression",
+]
+dynamic = ["version"]
+
+[tool.setuptools.packages.find]
+include = ["streaming_receiver*"]  # package names should match these glob patterns (["*"] by default)
+exclude = ["tests*"]  # exclude packages matching these glob patterns (empty by default)
+
+[project.scripts]
+streaming-receiver = "streaming_receiver.app.main:main"
+
+[project.optional-dependencies]
+tests = [
+    "pytest", "pytest-asyncio", "aiohttp", "pydantic-core",
+]

@@ -1,10 +1,12 @@
 import asyncio
 import logging
 import multiprocessing
+import os
 import random
 from typing import AsyncIterator, Callable, Coroutine, Any
 
 import aiohttp
+import cbor2
 import numpy as np
 import pytest_asyncio
 import uvicorn
@@ -12,10 +14,11 @@ import zmq
 from aiohttp import ClientConnectionError
 from pydantic_core import Url
 
-import app.main
+import streaming_receiver.app.main as receiver_app
 from stream1 import AcquisitionSocket
 
 from pytest import Parser
+import zipfile
 
 
 def pytest_addoption(parser: Parser) -> None:
@@ -49,7 +52,7 @@ async def receiver_process() -> (
     server_tasks = []
 
     async def start_generator(conf: dict, port: int = 5000) -> None:
-        a = app.main.app
+        a = receiver_app.app
         a.config = conf
         config = uvicorn.Config(a, port=port, log_level="debug")
         instance = UvicornServer(config=config)
@@ -99,3 +102,46 @@ async def stream_stins() -> (
         await socket.close()
 
     return _make_stins
+
+
+@pytest_asyncio.fixture
+async def stream_eiger_dump() -> Callable[
+    [
+        zmq.Context[Any],
+        os.PathLike[Any] | str,
+        int,
+        float,
+        int,
+    ],
+    Coroutine[Any, Any, None],
+]:
+    async def _make_dump(
+        ctx: zmq.Context[Any],
+        filename: os.PathLike[Any] | str,
+        port: int,
+        frame_time: float = 0.1,
+        typ: int = zmq.PUSH,
+    ) -> None:
+        socket: zmq.Socket[Any] = ctx.socket(typ)
+        socket.bind(f"tcp://*:{port}")
+
+        with zipfile.ZipFile(filename) as zf:
+            for file in zf.namelist():
+                if file.endswith(".cbors"):  # optional filtering by filetype
+                    with zf.open(file) as f:
+                        while True:
+                            try:
+                                dump = cbor2.load(f)
+                                frames = list(dump.value[1].values())[0].value[1]
+                                logging.info("send frames %s", frames[0])
+                                await socket.send_multipart(frames)
+                                await asyncio.sleep(frame_time)
+                            except EOFError:
+                                logging.warning("end of file reached")
+                                break
+
+                    break
+
+        socket.close()
+
+    return _make_dump

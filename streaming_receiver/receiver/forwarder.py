@@ -4,7 +4,7 @@ import struct
 import asyncio
 import logging
 
-from receiver.utils import cancel_and_wait
+from streaming_receiver.receiver.utils import cancel_and_wait
 
 logger = logging.getLogger(__name__)
 
