@@ -1,3 +1,4 @@
+import json
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    config = app.config
+    config = json.loads(os.getenv("DETECTOR_CONFIG"))
 
     class_name = config["class"]
     available_detectors = {
@@ -76,6 +77,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     yield
 
+    detector.close()
+
     await forwarder.close()
 
     await collector.close()
@@ -92,17 +95,19 @@ def main():
     args = parser.parse_args()
 
     with open(args.config_file) as fh:
-        config = yaml.load(fh, Loader=yaml.FullLoader)[args.detector]
+        det_config = yaml.load(fh, Loader=yaml.FullLoader)[args.detector]
 
-    logger.info("load config: %s", config)
-    app.config = config
-    port = config.get("api_port", 5000)
+    logger.info("load config: %s", det_config)
+    # app.config = config
+    port = det_config.get("api_port", 5000)
     api_loglevel = os.getenv("LOG_LEVEL", "INFO").lower()
     if api_loglevel == "info":
         api_loglevel = "warning"
     if api_loglevel == "debug":
         api_loglevel = "info"
     try:
+        os.environ["DETECTOR_CONFIG"] = json.dumps(det_config)
+
         config = uvicorn.Config(app, port=port, host="0.0.0.0", log_level=api_loglevel)
         server = uvicorn.Server(config)
         server.run()

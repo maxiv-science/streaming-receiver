@@ -35,8 +35,8 @@ async def custom_stins(port, filename, totalframes, start, stop) -> None:
 
 
 @pytest.mark.asyncio
-async def test_discard(receiver_process, stream_stins, tmp_path) -> None:
-    await receiver_process(
+async def test_discard(streaming_receiver, stream_stins, tmp_path) -> None:
+    await streaming_receiver(
         {
             "class": "Detector",
             "dcu_host_purple": "127.0.0.1",

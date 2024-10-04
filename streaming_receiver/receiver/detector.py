@@ -1,3 +1,5 @@
+import threading
+import time
 from copy import copy
 
 import zmq
@@ -96,6 +98,7 @@ class Detector:
 
     def run(self, config, queue):
         ips = config["dcu_host_purple"]
+        self.shutdown_event = threading.Event()
         if isinstance(ips, list):
             # connect to a set of endpoints, make sure that they have unique msg_numbers
             ports = config.get("dcu_port_purple", 9999)
@@ -110,27 +113,53 @@ class Detector:
                 wconfig = copy(config)
                 wconfig["dcu_host_purple"] = ip
                 wconfig["dcu_port_purple"] = port
-                t = Thread(target=self.worker, args=(wconfig, queue), daemon=True)
+                t = Thread(
+                    target=self.worker,
+                    args=(wconfig, queue, self.shutdown_event),
+                    daemon=True,
+                )
                 t.start()
                 self.threads.append(t)
                 logger.info("created worker thread with config", wconfig)
         else:
             nworkers = config.get("nworkers", 1)
             for i in range(nworkers):
-                t = Thread(target=self.worker, args=(config, queue), daemon=True)
+                t = Thread(
+                    target=self.worker,
+                    args=(config, queue, self.shutdown_event),
+                    daemon=True,
+                )
                 t.start()
                 self.threads.append(t)
             logger.info("created %d worker threads", nworkers)
 
-    def worker(self, config, queue: Queuey):
+    def close(self):
+        self.shutdown_event.set()
+        time.sleep(1)
+        for t in self.threads:
+            t.join()
+        self.context.term()
+        # self.context.destroy(linger=1)
+
+    def worker(self, config, queue: Queuey, evt):
         data_pull = self.context.socket(zmq.PULL)
         host = config["dcu_host_purple"]
         port = config.get("dcu_port_purple", 9999)
         data_pull.connect(f"tcp://{host}:{port}")
         logger.info("connected to tcp://%s:%d", host, port)
 
+        poller = zmq.Poller()
+        poller.register(data_pull, zmq.POLLIN)
+
         while True:
-            parts = data_pull.recv_multipart(copy=False)
+            while True:
+                socks = dict(poller.poll(timeout=1000))
+                if data_pull in socks:
+                    parts = data_pull.recv_multipart(copy=False)
+                    break
+                if evt.is_set():
+                    data_pull.close()
+                    return
             header = json.loads(parts[0].bytes)
             logger.debug("received frame with header %s", header)
             if header["htype"] == "image":
@@ -227,14 +256,23 @@ class Eiger(Detector):
 
         queue.put([data_header, blob])
 
-    def worker(self, config, queue: Queuey):
+    def worker(self, config, queue: Queuey, evt):
         data_pull = self.context.socket(zmq.PULL)
         host = config["dcu_host_purple"]
         data_pull.connect(f"tcp://{host}:9999")
         logger.info("zmq connected to tcp://%s:9999 (may not have counterpart)", host)
+        poller = zmq.Poller()
+        poller.register(data_pull, zmq.POLLIN)
 
         while True:
-            parts = data_pull.recv_multipart(copy=False)
+            while True:
+                socks = dict(poller.poll(timeout=1000))
+                if data_pull in socks:
+                    parts = data_pull.recv_multipart(copy=False)
+                    break
+                if evt.is_set():
+                    data_pull.close()
+                    return
             header = json.loads(parts[0].bytes)
             if header["htype"] == "dimage-1.0":
                 self.handle_frame(header, parts, queue)
@@ -259,7 +297,7 @@ class Lambda(Detector):
     def __init__(self, pipeline=None):
         super().__init__(pipeline=pipeline)
 
-    def worker(self, config, queue: Queuey):
+    def worker(self, config, queue: Queuey, evt):
         data_pull = []
         for i in range(4):
             sock = self.context.socket(zmq.PULL)
@@ -356,7 +394,7 @@ class DectrisStream2(Detector):
         super().__init__(pipeline=pipeline)
         self._msg_number = count(0)
 
-    def worker(self, config, queue: Queuey):
+    def worker(self, config, queue: Queuey, evt):
         data_pull = self.context.socket(zmq.PULL)
         host = config["dcu_host_purple"]
         data_pull.connect(f"tcp://{host}:31001")
@@ -494,7 +532,7 @@ class Jungfrau(Detector):
     def __init__(self, pipeline=None):
         super().__init__(pipeline=pipeline)
 
-    def worker(self, config, queue: Queuey):
+    def worker(self, config, queue: Queuey, evt):
         data_pull = self.context.socket(zmq.SUB)
         host = config["dcu_host_purple"]
         port = config.get("dcu_port_purple", 2345)
@@ -538,7 +576,7 @@ class PsiEiger(Detector):
         self.ports = [30001, 30002]
         self.cache = [{} for _ in self.ports]
 
-    def worker(self, config, queue: Queuey):
+    def worker(self, config, queue: Queuey, evt):
         data_pull = [self.context.socket(zmq.SUB) for _ in self.ports]
         host = config["dcu_host_purple"]
         poller = zmq.Poller()

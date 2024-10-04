@@ -21,6 +21,8 @@ from stream1 import AcquisitionSocket
 from pytest import Parser
 import zipfile
 
+from pytest_cov.embed import cleanup
+
 
 def pytest_addoption(parser: Parser) -> None:
     parser.addoption(
@@ -40,7 +42,9 @@ class UvicornServer(multiprocessing.Process):
         logging.info("started server with config %s", config)
 
     def stop(self) -> None:
+        cleanup()
         self.terminate()
+        self.join()
 
     def run(self, *args: Any, **kwargs: Any) -> None:
         self.server.run()
@@ -77,6 +81,30 @@ async def receiver_process() -> (
     for server in server_tasks:
         server.stop()
 
+    await asyncio.sleep(0.1)
+
+
+@pytest_asyncio.fixture()
+async def streaming_receiver() -> AsyncIterator[
+    Callable[[dict], Coroutine[None, None, None]]
+]:
+    server_tasks = []
+
+    async def start_receiver(conf: dict) -> None:
+        os.environ["DETECTOR_CONFIG"] = json.dumps(conf)
+        config = uvicorn.Config(receiver_app.app, port=5000, log_level="debug")
+        server = uvicorn.Server(config)
+        server_tasks.append((server, asyncio.create_task(server.serve())))
+        while server.started is False:
+            await asyncio.sleep(0.1)
+
+    yield start_receiver
+
+    for server, task in server_tasks:
+        server.should_exit = True
+        await task
+
+    del os.environ["DETECTOR_CONFIG"]
     await asyncio.sleep(0.1)
 
 

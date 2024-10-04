@@ -4,3 +4,4 @@ streaming_receiver/receiver/processing.c*
 streaming_receiver/_version.py
 *.egg-info
 build
+.coverage

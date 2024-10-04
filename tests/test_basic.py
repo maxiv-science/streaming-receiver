@@ -25,8 +25,8 @@ async def consume(num) -> None:
 
 
 @pytest.mark.asyncio
-async def test_simple(receiver_process, stream_stins, tmp_path) -> None:
-    await receiver_process(
+async def test_simple(streaming_receiver, stream_stins, tmp_path) -> None:
+    await streaming_receiver(
         {
             "class": "Detector",
             "dcu_host_purple": "127.0.0.1",

@@ -11,8 +11,8 @@ from bitshuffle import decompress_lz4
 
 
 @pytest.mark.asyncio
-async def test_legacy(receiver_process, stream_eiger_dump, tmp_path) -> None:
-    await receiver_process(
+async def test_legacy(streaming_receiver, stream_eiger_dump, tmp_path) -> None:
+    await streaming_receiver(
         {
             "class": "Eiger",
             "dcu_host_purple": "127.0.0.1",
