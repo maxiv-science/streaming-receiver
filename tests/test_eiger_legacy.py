@@ -16,7 +16,7 @@ async def test_legacy(receiver_process, stream_eiger_dump, tmp_path) -> None:
         {
             "class": "Eiger",
             "dcu_host_purple": "127.0.0.1",
-            "data_port": 23006,
+            "data_port": 23008,
             "dset_name": "/entry/instrument/eiger/data",
         }
     )

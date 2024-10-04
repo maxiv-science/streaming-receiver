@@ -35,12 +35,12 @@ async def custom_stins(port, filename, totalframes, start, stop) -> None:
 
 
 @pytest.mark.asyncio
-async def test_simple(receiver_process, stream_stins, tmp_path) -> None:
+async def test_discard(receiver_process, stream_stins, tmp_path) -> None:
     await receiver_process(
         {
             "class": "Detector",
             "dcu_host_purple": "127.0.0.1",
-            "data_port": 23006,
+            "data_port": 23007,
             "dset_name": "/entry/instrument/zyla/data",
         }
     )
@@ -68,6 +68,11 @@ async def test_simple(receiver_process, stream_stins, tmp_path) -> None:
 
         st = await session.get("http://localhost:5000/status")
         content = await st.json()
+        while content["state"] == "running":
+            await asyncio.sleep(0.3)
+            st = await session.get("http://localhost:5000/status")
+            content = await st.json()
+            logging.debug("status is %s", content)
 
         assert content["state"] == "idle"
 
