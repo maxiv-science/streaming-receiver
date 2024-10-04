@@ -15,6 +15,7 @@ async def test_legacy(streaming_receiver, stream_eiger_dump, tmp_path) -> None:
     await streaming_receiver(
         {
             "class": "Eiger",
+            "nworkers": 4,
             "dcu_host_purple": "127.0.0.1",
             "data_port": 23008,
             "dset_name": "/entry/instrument/eiger/data",
